@@ -1,0 +1,12 @@
+{
+  "name": "grid-topology-optimization",
+  "version": "0.12.1",
+  "private": true,
+  "description": "Grid-based 3D/2D truss layout (ground structure) topology optimization in the browser",
+  "scripts": {
+    "build:standalone": "python3 src/build.py"
+  },
+  "dependencies": {
+    "highs": "1.15.3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "grid": { "origin": [0, 0, 0], "h": 100, "nx": 10, "ny": 0, "nz": 4 },
+  "material": { "E": 205000, "nu": 0.3, "sigmaT": 235, "sigmaC": 235 },
+  "regions": [
+    { "type": "support", "min": [0, 0, 0], "max": [0, 0, 0], "fix": [1, 1, 1] },
+    { "type": "support", "min": [1000, 0, 0], "max": [1000, 0, 0], "fix": [1, 1, 1] },
+    { "type": "load", "min": [0, 0, 400], "max": [1000, 0, 400], "F": [0, 0, -10000], "case": 1 }
+  ],
+  "extraNodes": [],
+  "options": { "objective": "roundup" }
+}

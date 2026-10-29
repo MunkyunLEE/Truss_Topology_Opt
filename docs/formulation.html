@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ground Structure TO 수식 정리</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'\\(',right:'\\)',display:false}]})"></script>
+<style>
+:root{--bg:#fbfaf7;--fg:#1d1d1b;--muted:#6b6a64;--line:#e3e0d8;--card:#ffffff;--accent:#1f5f8b;--accent2:#b5562b;--code:#f2efe8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--fg:#e6e4df;--muted:#9a978f;--line:#2d3036;--card:#1c1f23;--accent:#6fb3e0;--accent2:#e59266;--code:#23272c}}
+:root[data-theme="dark"]{--bg:#15171a;--fg:#e6e4df;--muted:#9a978f;--line:#2d3036;--card:#1c1f23;--accent:#6fb3e0;--accent2:#e59266;--code:#23272c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.75 "Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:40px 16px}
+nav{position:sticky;top:24px;align-self:start;font-size:14px}
+nav b{display:block;color:var(--muted);font-size:12px;letter-spacing:.08em;margin-bottom:8px}
+nav a{display:block;color:var(--fg);text-decoration:none;padding:3px 0 3px 10px;border-left:2px solid var(--line)}
+nav a:hover{border-color:var(--accent);color:var(--accent)}
+h1{font-size:30px;line-height:1.3;margin:0 0 6px}
+.sub{color:var(--muted);margin:0 0 32px}
+h2{font-size:22px;margin:56px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+h2 .n{color:var(--accent);margin-right:8px}
+h3{font-size:17px;margin:28px 0 8px}
+.box{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);padding:14px 18px;margin:16px 0;border-radius:4px}
+.box.warn{border-left-color:var(--accent2)}
+.box p{margin:6px 0}
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:12px 0}
+th,td{border-bottom:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+code{background:var(--code);padding:1px 5px;border-radius:3px;font-size:13.5px}
+.katex-display{overflow-x:auto;overflow-y:hidden;padding:4px 0}
+ol.ref li{margin-bottom:8px;font-size:14.5px}
+.tag{display:inline-block;font-size:12px;padding:0 7px;border-radius:10px;border:1px solid var(--line);color:var(--muted);margin-left:4px}
+svg text{fill:var(--fg);font-size:12px}
+.flow rect{fill:var(--card);stroke:var(--accent)}
+.flow path{stroke:var(--muted);fill:none;marker-end:url(#ar)}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}nav{position:static}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+<b>CONTENTS</b>
+<a href="#s0">0. 전체 파이프라인</a>
+<a href="#s1">1. 기호 정의</a>
+<a href="#s2">2. Ground structure 생성</a>
+<a href="#s3">3. 평형행렬과 적합조건</a>
+<a href="#s4">4. 최적화 (LP)</a>
+<a href="#s5">5. Adaptive member adding</a>
+<a href="#s6">6. 단면 결정과 강성 해석</a>
+<a href="#s7">7. 자유도·안정성 판정</a>
+<a href="#s8">8. 메커니즘 처리 (안정화/강접합)</a>
+<a href="#s9">9. 3D 빔 요소 (확장 단계)</a>
+<a href="#s10">10. 격자 외 노드와 기하 최적화</a>
+<a href="#s11">11. 웹 구현 구조</a>
+<a href="#ref">참고문헌</a>
+</nav>
+
+<main>
+<h1>3D Ground Structure 위상최적화 수식 정리</h1>
+<p class="sub">트러스(핀접합) 우선 · 영역 기반 경계/장애물 조건 · 격자 외 노드 · 웹(브라우저) 구동 기준 — 2026.10</p>
+
+<h2 id="s0"><span class="n">0</span>전체 파이프라인</h2>
+<svg viewBox="0 0 860 150" width="100%" class="flow" role="img" aria-label="파이프라인">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" style="fill:var(--muted);stroke:none"/></marker></defs>
+<rect x="5" y="20" width="150" height="46" rx="6"/><text x="80" y="40" text-anchor="middle">① 격자·영역 정의</text><text x="80" y="57" text-anchor="middle">BC / 장애물 / 추가노드</text>
+<path d="M155,43H180"/>
+<rect x="180" y="20" width="150" height="46" rx="6"/><text x="255" y="40" text-anchor="middle">② Ground structure</text><text x="255" y="57" text-anchor="middle">후보 부재 생성·필터</text>
+<path d="M330,43H355"/>
+<rect x="355" y="20" width="150" height="46" rx="6"/><text x="430" y="40" text-anchor="middle">③ LP 최적화</text><text x="430" y="57" text-anchor="middle">+ member adding 반복</text>
+<path d="M505,43H530"/>
+<rect x="530" y="20" width="150" height="46" rx="6"/><text x="605" y="40" text-anchor="middle">④ 자유도 판정</text><text x="605" y="57" text-anchor="middle">SVD → m = 0 ?</text>
+<path d="M680,43H705"/>
+<rect x="705" y="20" width="150" height="46" rx="6"/><text x="780" y="40" text-anchor="middle">⑤ 강성 해석·검증</text><text x="780" y="57" text-anchor="middle">K u = f, .inp 내보내기</text>
+<path d="M605,66V110H430V70"/>
+<text x="518" y="128" text-anchor="middle">m &gt; 0 : 안정화 부재 추가 / 국부 강접합 (§8)</text>
+</svg>
+
+<h2 id="s1"><span class="n">1</span>기호 정의</h2>
+<table>
+<tr><th>기호</th><th>의미</th></tr>
+<tr><td>\(n,\ b\)</td><td>노드 수, 부재(후보 부재) 수</td></tr>
+<tr><td>\(\mathbf x_j\in\mathbb R^3\)</td><td>노드 \(j\)의 좌표</td></tr>
+<tr><td>\(l_i,\ \mathbf d_i\)</td><td>부재 \(i\)의 길이와 단위 방향벡터 \(\mathbf d_i=(\mathbf x_{b}-\mathbf x_{a})/l_i\)</td></tr>
+<tr><td>\(q_i\)</td><td>부재 축력 (인장 +)</td></tr>
+<tr><td>\(a_i\)</td><td>부재 단면적</td></tr>
+<tr><td>\(\sigma_T,\ \sigma_C\)</td><td>허용 인장/압축 응력 (양수)</td></tr>
+<tr><td>\(\mathbf B\)</td><td>평형행렬 \((3n\times b)\)</td></tr>
+<tr><td>\(\mathbf f_k,\ \mathbf u_k\)</td><td>하중 케이스 \(k\)의 절점 하중 / (가상)변위</td></tr>
+<tr><td>\(n_f\)</td><td>구속되지 않은 자유도 수</td></tr>
+<tr><td>\(s\)</td><td>joint cost (부재당 추가 길이 페널티)</td></tr>
+</table>
+
+<h2 id="s2"><span class="n">2</span>Ground structure 생성</h2>
+<h3>2.1 노드</h3>
+<p>설계 영역 \(\Omega\)를 간격 \(h\)의 직교 격자로 이산화하고, 장애물 영역 \(\Omega_{obs}\) 내부의 노드를 제거합니다. 격자 외 노드 집합 \(\mathcal N_{add}\)는 그대로 노드 리스트에 추가합니다(§10).</p>
+$$\mathcal N=\{\mathbf x=\mathbf x_0+h(i,j,k)\ \mid\ \mathbf x\in\Omega,\ \mathbf x\notin\Omega_{obs}\}\ \cup\ \mathcal N_{add}$$
+
+<h3>2.1a 2D 모드</h3>
+<p>한 축의 셀 수를 0으로 두면(예: \(n_y=0\)) 노드가 한 평면에만 생기는 평면 트러스 문제가 됩니다. 이때 모든 노드의 평면 밖 자유도를 구속합니다. 면외 방향은 별도로 횡지지된다는 표준 가정이며, 그 결과 자유도 판정·잠금·접힘 분석이 2D 기준(삼각형 = 강체)으로 동작합니다. 하중의 평면 밖 성분은 무시하고 경고를 표시합니다. 원형 단면은 면내·면외 \(I\)가 같으므로 좌굴 검토식은 그대로 적용됩니다(노드에서 면외 지지 가정).</p>
+<h3>2.2 영역 기반 경계조건</h3>
+<p>지지 영역 \(\Omega_{s}\), 하중 영역 \(\Omega_{f}\)에 포함되는 노드 집합을 포함 판정으로 결정합니다.</p>
+$$\mathcal N_s=\{j\mid \mathbf x_j\in\Omega_s\},\qquad \mathcal N_f=\{j\mid \mathbf x_j\in\Omega_f\}$$
+<p>영역 하중 \(\mathbf F\)는 분포하중으로 보고 <b>부담 길이·면적 가중</b>으로 분배합니다(v12). 각 축 \(t\)에서 하중 노드 좌표를 정렬해 \(c_{t,0}<\dots<c_{t,n}\)이라 할 때</p>
+$$\ell_t(c_{t,k})=\tfrac12\big[(c_{t,k}-c_{t,k-1})+(c_{t,k+1}-c_{t,k})\big]\ (\text{끝에서는 한쪽만}),\qquad \mathbf f_j=\mathbf F\,\frac{\prod_t\ell_t(x_{jt})}{\sum_{i\in\mathcal N_f}\prod_t\ell_t(x_{it})}$$
+<p>등간격 선하중에서는 양 끝이 ½, 면하중에서는 가장자리가 ½, 모서리가 ¼이 됩니다. 축 방향으로 좌표가 하나뿐이면 \(\ell_t=1\)이고, 한 점 영역이면 그 노드가 전부 받습니다. 지지는 방향별 구속 플래그(x, y, z)로 지정합니다.</p>
+<p>하중면을 받치는 바닥 부재를 강제로 까는 기능은 v12에서 시험했다가 뺐습니다. 패널은 노드에만 하중을 전달한다고 보며, 바닥 부재를 강제로 넣으면 그 부재를 통해 힘이 흘러 최적 배치가 왜곡됐기 때문입니다.</p>
+
+<h3>2.2a 면 보간 노드 (영역별 토글)</h3>
+<p>영역 박스 \([\mathbf b^{min},\mathbf b^{max}]\)의 각 면(법선 축 \(a\), 면내 축 \(b,c\))에 대해, 면내 좌표 집합</p>
+$$\mathcal V_b=\{b^{min},b^{max}\}\cup\{x_{0,b}+kh\in[b^{min},b^{max}]\},\qquad \mathcal V_c\ \text{동일}$$
+<p>의 곱 \(\mathcal V_b\times\mathcal V_c\)를 면 위 노드로 추가합니다. 격자선이 면을 관통하는 점, 면 모서리와 격자선의 교점, 꼭짓점이 모두 포함됩니다. 이미 격자점인 점은 제외하고, 나머지는 §10.1의 격자 외 노드 규칙을 따릅니다.</p>
+<h3>2.3 후보 부재와 필터</h3>
+<table>
+<tr><th>필터</th><th>조건</th></tr>
+<tr><td>연결 범위 <span class="tag">확정</span></td><td>인접 셀(한 칸) 이내: \(|\Delta i|,|\Delta j|,|\Delta k|\le 1\), 즉 \(l_{ij}\le\sqrt3\,h\). 노드당 후보 부재 13개(모서리 3, 면대각선 6, 체대각선 4) → 전체 \(b\approx 13n\)</td></tr>
+<tr><td>중복(겹침) 부재 제거</td><td>격자 정수 오프셋 \((\Delta i,\Delta j,\Delta k)\)에 대해 \(\gcd(|\Delta i|,|\Delta j|,|\Delta k|)=1\)인 부재만 유지 — 중간 노드를 관통하는 긴 부재는 짧은 부재 2개와 중복</td></tr>
+<tr><td>허용 부재 종류</td><td>모서리(h) / 면대각(√2h) / 체대각(√3h)을 각각 켜고 끌 수 있음 — 길이 규격 수를 직접 제한</td></tr>
+<tr><td>장애물 관통 제거</td><td>선분 \(\overline{\mathbf x_a\mathbf x_b}\)가 \(\Omega_{obs}\)와 교차하면 제거 (AABB는 slab test, 일반 형상은 mesh ray–triangle test)</td></tr>
+<tr><td>영역 이탈 제거</td><td>오목 영역에서 선분이 \(\Omega\) 밖을 지나면 제거 (중점 + 샘플점 포함 판정)</td></tr>
+</table>
+<div class="box"><p><b>교차 금지 규칙 (삼각형 가새만 허용)</b>: 서로 다른 두 부재가 노드가 아닌 내부점에서 교차하는 것(X 가새)을 금지합니다. 3D에서 선분은 일반적으로 교차하지 않으므로, 교차는 <b>같은 평면 위의 부재 쌍</b>에서만 발생합니다. 셀 단위 연결(\(l\le\sqrt3\,h\))에서는 다음 두 경우뿐입니다.</p>
+<p>· 한 면의 대각선 2개 \(\rightarrow\) 면당 최대 1개 &nbsp;&nbsp; · 한 셀의 체대각선 4개(중심에서 교차) \(\rightarrow\) 셀당 최대 1개</p>
+<p>교차 쌍 집합 \(\mathcal X=\{(i,j)\}\)은 사전에 계산하며, 선택은 §4.4의 혼합정수 제약으로 처리합니다.</p></div>
+<div class="box warn"><p>3D full ground structure의 후보 부재 수는 \(O(n^2)\)입니다. 예: \(20^3=8000\) 노드면 약 \(3.2\times10^7\)개. 그래서 §5의 adaptive member adding이 사실상 필수입니다.</p></div>
+
+<h2 id="s3"><span class="n">3</span>평형행렬과 적합조건</h2>
+<p>부재 \(i\) (노드 \(a\to b\))에 대해 \(\mathbf B\)의 \(i\)열은 노드 \(a\)의 3자유도에 \(-\mathbf d_i\), 노드 \(b\)에 \(+\mathbf d_i\)를 갖습니다.</p>
+$$\mathbf B_{(:,i)}=\big[\,\cdots,\ \underbrace{-\mathbf d_i^{\mathsf T}}_{\text{node }a},\ \cdots,\ \underbrace{+\mathbf d_i^{\mathsf T}}_{\text{node }b},\ \cdots\big]^{\mathsf T}$$
+$$\text{평형:}\quad \mathbf B\,\mathbf q=\mathbf f \qquad\qquad \text{적합:}\quad \mathbf e=\mathbf B^{\mathsf T}\mathbf u,\quad \varepsilon_i=\frac{\mathbf d_i\!\cdot\!(\mathbf u_b-\mathbf u_a)}{l_i}$$
+<p>가상일 원리 \(\mathbf f^{\mathsf T}\mathbf u=\mathbf q^{\mathsf T}\mathbf e\)로 두 식이 서로 전치 관계(static–kinematic duality)임을 확인할 수 있습니다. 구속 자유도의 행은 제거합니다.</p>
+
+<h2 id="s4"><span class="n">4</span>최적화 — 소성 정식화 (LP)</h2>
+<h3>4.1 단일 하중 케이스</h3>
+<p>축력을 인장/압축 성분으로 분리 \(\mathbf q=\mathbf q^+-\mathbf q^-\), \(\mathbf q^\pm\ge 0\).</p>
+$$\begin{aligned}
+\min_{\mathbf q^+,\mathbf q^-}\ & V=\sum_{i=1}^{b}(l_i+s)\left(\frac{q_i^+}{\sigma_T}+\frac{q_i^-}{\sigma_C}\right)\\
+\text{s.t.}\ & \mathbf B(\mathbf q^+-\mathbf q^-)=\mathbf f,\qquad \mathbf q^+,\mathbf q^-\ge \mathbf 0
+\end{aligned}$$
+<p>변위 기반 compliance 최소화와 달리 강성행렬이 필요 없고, 볼록(선형) 문제이므로 <b>전역 최적해</b>가 보장됩니다.</p>
+
+<h3>4.2 쌍대 문제 (가상 변위)</h3>
+$$\max_{\mathbf u}\ \mathbf f^{\mathsf T}\mathbf u\quad\text{s.t.}\quad -\frac{l_i+s}{\sigma_C}\ \le\ \mathbf B_{(:,i)}^{\mathsf T}\mathbf u\ \le\ \frac{l_i+s}{\sigma_T}\quad\forall i$$
+<p>LP 솔버가 등식 제약의 쌍대변수로 \(\mathbf u\)를 함께 돌려주며, 이것이 §5의 부재 추가 판정에 사용됩니다.</p>
+
+<h3>4.3 다중 하중 케이스 (안정성 확보에 권장)</h3>
+$$\begin{aligned}
+\min_{\mathbf a,\ \mathbf q_k}\ & \sum_i (l_i+s)\,a_i\\
+\text{s.t.}\ & \mathbf B\,\mathbf q_k=\mathbf f_k,\qquad -\sigma_C a_i\le q_{ik}\le \sigma_T a_i\qquad \forall i,\ k=1..K
+\end{aligned}$$
+<div class="box"><p><b>교란 하중 케이스</b>: 실제 하중 \(\mathbf f_1\) 외에 각 축 방향의 작은 하중(\(\sim 1\text{–}5\%\))을 추가 케이스로 넣으면, 단일 하중 최적해가 정정·메커니즘으로 수렴하는 문제를 크게 줄일 수 있습니다.</p></div>
+
+<h3>4.3a 실무 조건 (웹 툴 v4)</h3>
+<p><b>대칭 강제</b>: 중앙면 \(x_t=c_t\)에 대한 거울 사상으로 부재 궤도 \(\mathcal O\)를 만들고, 궤도 안의 단면을 같게 둡니다. 하중이 비대칭이어도 쓸 수 있도록 단면 변수 \(a_i\)를 갖는 일반 정식화(§4.3)를 사용합니다.</p>
+$$a_i=a_{\mathrm{rep}(\mathcal O)}\quad\forall i\in\mathcal O,\qquad y_i=y_{\mathrm{rep}(\mathcal O)}\ (\text{MILP})$$
+<p>단일 하중 소성해는 유일하지 않은 경우가 많아(예: 네 모서리 지지의 대각선 쌍), 대칭 조건이 없으면 솔버가 임의의 꼭짓점 해를 골라 비대칭이 됩니다. 볼록성 때문에 대칭해의 체적은 원래 최적값과 같습니다. 교차 금지와 함께 쓰면, 중앙면을 가로지르는 면의 두 대각선은 서로의 거울상이라 둘 다 0이 됩니다.</p>
+<p><b>대칭 축소 LP (v10)</b>: 감지된 대칭은 모델(노드·부재·구속·하중)이 거울 불변임을 뜻하므로, 볼록성에 의해 단면뿐 아니라 부재력도 대칭인 최적해가 존재합니다. 그래서 궤도 \(\mathcal O\)마다 변수 하나(\(a_{\mathcal O}\), \(q_{\mathcal O k}\))를 두고, 평형식은 대표 절점(절점 궤도의 최소 번호)에서만 세웁니다.</p>
+$$\Big(\sum_{i\in\mathcal O}\mathbf B_{i}\big|_{rep}\Big)\,q_{\mathcal O k}\ \ (\text{모든 }\mathcal O\text{에 대해 합})=\mathbf f_k\big|_{rep},\qquad \text{비용 } \sum_{i\in\mathcal O}(l_i+s)\,a_{\mathcal O}$$
+<p>변수·제약이 대칭면 하나당 약 1/2로 줄고 등식 제약이 없어져, 3D 16×6×6 LP가 4.3 s에서 0.37 s로 빨라졌습니다. 전체 모델의 쌍대 변위는 \(\mathbf u_j=\mathbf R_j\,\mathbf y_{rep(j)}/|\mathcal N_{rep(j)}|\)로 복원합니다(\(\mathbf R_j\): 거울 부호, \(|\mathcal N|\): 절점 궤도 크기). 따라서 부재 추가법의 위반도 검사는 그대로 정확합니다. 수동으로 지정한 대칭(하중이 비대칭일 수 있음)에는 축소를 쓰지 않고, 기존 단면 등식 방식을 씁니다. 참고로 등식 방식은 HiGHS 내점법에서 비최적해를 최적으로 보고하는 경우가 있었으며(단면 하한 시험에서 +0.4%), 축소 방식에서는 이 문제가 생기지 않았습니다.</p>
+<p><b>대칭 자동 감지 (v8, 모델 기준)</b>: 입력 영역이 아니라 이산화된 모델로 판정합니다. 중앙면 \(t\)에 대해 모든 노드의 거울 노드가 존재하고, 구속 자유도가 같고, 모든 케이스 하중이 \(f_{\bar j t}=-f_{jt}\)·\(f_{\bar j s}=f_{js}\ (s\ne t)\)로 대응하고, 모든 후보 부재의 거울 부재가 존재하며, 반력 분담 행이 거울 불변이면 그 면을 대칭면으로 씁니다. 예: 2D 모드에서 평면 밖에 남은 추가 노드는 모델에서 제외되므로 대칭 판정을 막지 않습니다.</p>
+<p><b>단면 하한 가지치기의 동률 처리</b>: §4.6의 작은 부재 제거·유지 단계에서 단면이 같은(상대오차 \(10^{-6}\)) 부재 묶음을 쪼개지 않습니다. 그렇지 않으면 대칭 쌍 중 하나만 먼저 제거되어 비대칭 해가 나옵니다. 좌굴 횡보강점은 등간격 목표점에 가장 가까운 격자점으로 고르며, 거울 부재에서도 같은 위치가 선택됩니다.</p>
+<p><b>지지 영역별 최소 반력 분담</b>: 케이스 1의 총하중 \(\mathbf F\), \(\hat{\mathbf g}=-\mathbf F/|\mathbf F|\)에 대해, 지지 영역 \(r\)의 구속 자유도 반력 \(\mathbf R=\mathbf B\mathbf q-\mathbf f\)가</p>
+$$\sum_{(j,t)\in r,\ \text{fixed}}\hat g_t\,(\mathbf B\mathbf q_1-\mathbf f_1)_{jt}\ \ge\ \rho\,|\mathbf F|$$
+<p>를 만족하도록 합니다(선형). 하중 방향 구속이 약한 영역(\(\sum_{t\,\text{fixed}}\hat g_t^2<0.25\))은 제외합니다.</p>
+<p><b>횡방향 교란 하중</b>: 지배 하중 축에 수직인 두 축 방향으로 하중점에 \(\epsilon|\mathbf f_j|\) 크기의 케이스를 추가합니다(\(\sigma_T\ne\sigma_C\)이면 ± 모두). 한 칸 연결 격자에서는 격자 방향이 아닌 경사 경로가 지그재그로 근사되어 가는 부재가 많아질 수 있습니다.</p>
+<p><b>부재 존재 판정</b>: \(a_i>\alpha a_{max}\) 또는 어떤 케이스에서든 \(|q_{ik}|>\alpha\max_i|q_{ik}|\)이면 부재로 남깁니다. 단면 기준만 쓰면 작은 케이스의 힘만 받는 부재가 잘려 평형이 깨지고 메커니즘이 생깁니다.</p>
+<h3>4.4 교차 금지 제약 (MILP)</h3>
+<p>부재 존재 여부 이진변수 \(y_i\in\{0,1\}\)를 추가합니다(\(\bar a\): 단면적 상한).</p>
+$$a_i\le \bar a\,y_i,\qquad y_i+y_j\le 1\quad\forall (i,j)\in\mathcal X$$
+<p>모든 교차 쌍을 처음부터 넣지 않고, <b>런타임 제약 생성</b>으로 풉니다(Fairclough &amp; Gilbert 2020).</p>
+<ol>
+<li>교차 제약 없이 LP를 풉니다.</li>
+<li>해에서 두 부재가 모두 \(a>0\)인 교차 쌍만 \(\mathcal X_{act}\)에 추가합니다.</li>
+<li>\(\mathcal X_{act}\)에 속한 부재에만 \(y_i\)를 두고 MILP를 다시 풉니다. 새로운 활성 교차 쌍이 없을 때까지 반복합니다.</li>
+</ol>
+<p>대각선 방향이 사전에 고정되지 않으므로 결과의 방향 편향이 없습니다. 대안으로 각 셀을 6개의 사면체로 고정 분할(Kuhn 분할)하면 LP만으로 교차가 없지만, 대각선 방향이 한쪽으로 고정되어 결과가 비등방적이 됩니다.</p>
+
+<h3>4.5 최소 단면: 올림 + 재최적화 + 가는 부재 정리 (v11, 기본 모드)</h3>
+<div class="box"><p>v10까지의 균일 단면 MILP(모든 부재 같은 A, 부재 선택을 이진변수로)는 v11에서 제거했습니다. 후보 수천 개에 이진변수를 두는 조합 문제라 3D에서 시간 안에 수렴하지 못했기 때문입니다. 아래 방식은 이진변수 없이 LP만 반복합니다.</p></div>
+<ol>
+<li><b>자유 LP</b>: 단면 제한 없이 §4.1–4.4를 풀어 위상과 필요 단면 \(a_i^0\)를 얻습니다.</li>
+<li><b>올림</b>: 사용 부재 집합 \(\mathcal S=\{i: a_i^0>0\ \text{또는}\ q_{ik}\ne0\}\)에 \(A_i=\max(A_{min},a_i^0)\). 단면을 키우기만 하므로 이 설계는 항상 성립합니다(체적 \(V_{naive}\)).</li>
+<li><b>재최적화</b>: \(\mathcal S\)만 남기고 하한을 건 LP
+$$\min\sum_{i\in\mathcal S}(l_i+s)a_i\quad\text{s.t.}\quad \mathbf B\mathbf q_k=\mathbf f_k,\ -\sigma_Ca_i\le q_{ik}\le\sigma_Ta_i,\ a_i\ge A_{min}\ (i\in\mathcal S)$$
+를 풉니다. \(A_{min}\)으로 올라간 가는 부재의 여유 내력이 다른 부재를 줄이는 데 쓰입니다. 다만 LP 꼭짓점 해는 대개 정정 트러스라 개선 폭이 작습니다.</li>
+<li><b>가는 부재 정리</b>: \(a_i=A_{min}\)인 부재 \(B\)(대칭 궤도 단위)를 빼고, \(B\)의 중점에서 \(\max(2h,l_B)\) 이내 절점 사이 부재만 새로 허용해 다시 풉니다(우회 LP). 새로 들어온 부재 중 큰 것부터 \(k\)개만 남기는 최소 \(k\)를 이분 탐색하고, 그 집합을 다시 올림·재최적화합니다. <b>부재 수가 늘지 않으면서</b> 체적이 줄거나, 부재 수가 줄고 체적 증가가 허용치(기본 2%) 이내이면 채택합니다. 힘을 받지 않고 하한 때문에만 남은 부재는 먼저 한꺼번에 시도합니다. 연속 8회 실패하거나 시간 제한에 도달하면 멈춥니다.</li>
+<li><b>단면 카탈로그(선택)</b>: \(A_{min}=\min(\text{카탈로그})\). FSD 뒤 모든 부재를 바로 위 규격으로 올림합니다. 강성이 바뀌어 힘이 재분배되므로, 선형 해석을 다시 해서 한계를 넘는 부재를 한 규격씩 올리는 과정을 반복합니다.</li>
+</ol>
+<p>관찰: 3D 16×6×6 외팔보에서는 정리 단계에서 부재를 빼면 우회에 같은 수 이상의 새 부재가 필요해, 부재 수 조건을 두면 채택되는 제거가 없었습니다(가는 부재가 구조적으로 필요). 부재 수 조건을 풀면 체적은 1.4% 줄었지만 \(A_{min}\) 부재가 50개에서 73개로 늘었습니다. 그래서 기본값은 "부재 수 비증가"입니다.</p>
+
+<h3>4.5a 최대 하중 배수 (v11)</h3>
+<p>최종 구조(단면 확정 후)에 대해 하중 케이스별 배수 \(\lambda\)를 두 가지로 계산합니다. 부재 한계는 인장 \(N_T=\sigma_TA\), 압축 \(N_C=\min(\sigma_CA,\ \pi^2EI/l^2)\)이며 좌굴 안전율 \(\gamma\)는 넣지 않습니다(실제 예측 한계).</p>
+$$\lambda_{el}=\min_i\frac{N_{T\,\text{or}\,C,i}}{|q_i^{lin}|}\qquad(\text{선형 해석 부재력 기준, 첫 부재 한계})$$
+$$\lambda_{pl}=\max\lambda\quad\text{s.t.}\quad\mathbf B\mathbf q=\lambda\mathbf f,\ -N_{C,i}\le q_i\le N_{T,i}\qquad(\text{재분배 허용 붕괴, 하계 정리})$$
+<p>\(\lambda_{el}\le\lambda_{pl}\)이고, 지배 부재와 그 모드(인장 항복 / 압축 항복 / 좌굴)를 표시합니다. FSD를 켜면 단면이 설계 하중에 맞춰지므로 \(\lambda_{el}\approx1\)이 됩니다. 단면 카탈로그로 올림하거나 FSD를 끄면 여유(또는 부족)가 드러납니다. 좌굴 후 거동은 연성이 아니므로, 좌굴 부재가 붕괴 기구에 들어가면 \(\lambda_{pl}\)은 낙관적인 값입니다. 절점 전체가 움직이는 전체 좌굴은 포함하지 않습니다.</p>
+
+<h3>4.6a 부호별 단면 하한 (v6)</h3>
+<p>압축·일반 부재 \(a_i\ge A_c=\max(A_{min},\,r_c\,a_{max}^{LP})\), 텐션 로드 \(a_i\ge A_t=r_t\,a_{max}^{LP}\) (기본 \(r_c=20\%\), \(r_t=1\%\)). 텐션 로드는 <b>모든 하중 케이스에서 \(q_{ik}\ge0\)</b>인 부재로 정의하며, 반복 중 압축으로 바뀌면 \(A_c\)를 적용합니다. 풀이는 아래 4.6과 같은 제거·하한 고정 반복입니다.</p>
+<div class="box"><p><b>v10부터 텐션 로드 기본 꺼짐</b>: 모든 부재에 \(A_c\) 하나만 적용합니다(\(A_t=A_c\)). 하한 미만 부재는 제거하고 나머지 부재로 힘을 우회시켜 다시 풀며, 제거하면 평형이 성립하지 않는 부재만 \(A_c\)로 키웁니다. 가는 로드가 섞이지 않는 대신 체적은 다소 늘어납니다(3D 16×6×6 외팔보: LP 하한 대비 +4.9% → +11.0%). "텐션 로드 허용"을 켜면 이전 방식으로 돌아갑니다. 제거 시도의 출발 집합은 힘을 조금이라도 받는 모든 부재로 둡니다(면적 컷오프로 미리 자르면 평형이 깨질 수 있음).</p></div>
+<h3>4.6 최소 단면 조건 (가변 단면 + A_min)</h3>
+<p>부재 단면을 \(a_i\in\{0\}\cup[A_{min},\infty)\)로 제한해, 최소 체적 해에 흔한 매우 가는 부재를 없앱니다. 이진변수 대신 LP의 상·하한만 쓰는 반복으로 풉니다.</p>
+<ol>
+<li>§4.1~4.4의 체적 최소 해(교차·대칭·반력 분담 포함)를 구합니다 → 전역 하한 \(\underline V\).</li>
+<li>탐색 범위를 정합니다. (a) 현재 쓰이는 부재만, (b) 현재 쓰이는 노드 사이의 모든 부재 중 하나이며, 범위 밖 부재는 \(a_i\le0\)으로 둡니다.</li>
+<li>\(0<a_i<A_{min}\)인 부재를 작은 순으로 30%씩 \(a_i\le0\)으로 제거하고 다시 풉니다. 해가 없어지면 묶음을 절반으로 줄이고, 한 개도 뺄 수 없으면 그 부재에 \(a_i\ge A_{min}\) 하한을 둡니다. 대칭 궤도는 함께 처리하고, 재해석 중 다시 생긴 교차는 얇은 쪽을 제거합니다.</li>
+<li>(a), (b) 중 체적이 작은 결과를 택하고, \((V-\underline V)/V\)를 보고합니다. 시간 제한에 걸리면 남은 가는 부재는 \(A_{min}\)으로 유지합니다.</li>
+</ol>
+<p>탐색 범위를 고정하면 제거가 새 가는 부재로 재분배되지 않아 부재 수가 단조 감소합니다. 예: 횡하중 5%를 넣은 브리지에서 부재 231개 → 95개, 체적은 하한 대비 +4.5%.</p>
+
+<h2 id="s5"><span class="n">5</span>Adaptive member adding</h2>
+<div class="box"><p><b>웹 툴 v9부터 기본값</b>(연결 범위 = 전 연결). 1셀 연결은 부재 방향이 2D 8개·3D 26개로 제한되어 Michell형 곡선 배치를 표현하지 못하고 체적이 커집니다. 전 연결은 후보가 \(O(n^2)\)(3D 16×6×6 격자에서 약 18만 개)라 그대로 LP에 넣지 않고, 아래 부재 추가법으로 필요한 부재만 LP에 넣습니다.</p></div>
+<h3>5.0 후보 생성 — 겹침 제거 (B)</h3>
+<p>격자 노드 쌍 \((a,b)\)의 격자 인덱스 차 \((\Delta i,\Delta j,\Delta k)\)에 대해 \(\gcd(|\Delta i|,|\Delta j|,|\Delta k|)=1\)인 쌍만 남깁니다. gcd가 1보다 크면 선분 위에 다른 격자점이 있어 더 짧은 부재들의 합과 겹치기 때문입니다. 1셀 부재(\(\max|\Delta|\le1\))는 초기 ground structure에 이미 있으므로 제외하고, 장애물 내부를 지나는 쌍과 선분 위에 추가 노드가 놓이는 쌍도 제거합니다. 추가 노드가 끝점인 쌍은 공선성 검사(§10.1)로 같은 판정을 합니다. 선택적으로 최대 길이 \(l_{max}\)(셀 단위)를 둘 수 있습니다.</p>
+<h3>5.0a 부재 추가법 (A)</h3>
+<ol>
+<li>1셀 부재(\(l\le\sqrt3\,h\))만으로 초기 ground structure를 구성하고 LP를 풉니다.</li>
+<li>쌍대해 \(\mathbf u_k\)로 <b>전체 후보 부재</b>의 가상 변형률을 계산합니다: \(\varepsilon_{ik}=\mathbf B_{(:,i)}^{\mathsf T}\mathbf u_k/(l_i+s)\).</li>
+<li>쌍대 제약 위반도를 평가합니다.</li>
+</ol>
+$$\nu_i=\sum_{k=1}^{K}\max\!\big(\sigma_T\,\varepsilon_{ik},\ -\sigma_C\,\varepsilon_{ik}\big)\qquad(\text{단일 케이스: } K=1)$$
+<ol start="4">
+<li>\(\nu_i>1+\delta\)인 부재 중 위반도 상위 일부(예: 현재 부재 수의 10% 이내)를 추가하고 다시 풉니다.</li>
+<li>추가할 부재가 없으면(\(\max\nu_i\le 1+\delta\)) 원래 full ground structure 문제의 최적해와 동일합니다.</li>
+</ol>
+<div class="box"><p>\(\nu_i\)는 각 후보 부재에 대해 독립적으로 계산되므로 행렬 조립 없이 벡터 연산(후보당 \(3K\)회 곱셈)으로 처리됩니다.</p></div>
+<p><b>구현 세부 (v9)</b></p>
+<ul>
+<li>\(\mathbf u_k\)는 HiGHS 해의 평형 행 쌍대값(<code>rowDual</code>)입니다. 반력 분담 행(§4.3a)이 있으면 그 쌍대값 \(y_r\)을 지지 자유도에 \(u_{1,jt}\mathrel{+}=y_r\hat g_t\)로 더해 케이스 1의 가상 변위에 포함합니다.</li>
+<li>추가 상한은 반복당 \(\max(100,\ 0.1\,|\mathcal E|)\)개이며, 위반도가 큰 순서로 넣습니다. 대칭이 켜져 있으면 선택한 부재의 거울상을 함께 추가하고 대칭 궤도를 다시 만듭니다.</li>
+<li>검증: 2D 10×4 격자(후보 934개)에서 부재 추가법의 체적은 전체 후보를 한 번에 푼 LP와 \(10^{-15}\) 이내로 일치했습니다(\(\sigma_T=\sigma_C\), \(\sigma_T\ne\sigma_C\) 모두).</li>
+<li>이후 단계(교차 금지, 단면 하한, 균일 단면 MILP)는 확장된 ground structure 위에서 그대로 수행합니다. 교차군 \(\mathcal X\)는 1셀 부재(면·체대각선)에만 정의됩니다.</li>
+<li>쌍대해는 교차변환(crossover) 없이 내점법 해(중심 경로 쪽)를 씁니다. 꼭짓점 쌍대해는 퇴화로 인해 체적을 줄이지 못하는 가짜 위반이 많이 남아 반복이 길어집니다(3D 16×6×6: 꼭짓점 30회 미수렴 → 내점 5회 수렴). 체적 변화가 3회 연속 0.001% 미만이면 수렴으로 판단합니다.</li>
+<li>부재가 3000개를 넘으면 교차 MILP·고정 휴리스틱은 LP 해의 사용 노드와 그 1셀 이웃 사이 부재만 후보로 풉니다. 제외(banned) 부재는 LP 열 자체를 만들지 않습니다.</li>
+</ul>
+<h3>5.1 장거리 부재 교차의 절점화</h3>
+<p>장거리 부재끼리, 또는 장거리 부재와 다른 부재가 내부에서 교차하면 교차점 \(\mathbf p=\mathbf x_a+s\,\mathbf d_1=\mathbf x_c+t\,\mathbf d_2\)를 구합니다. 두 선분의 최근접점 거리가 허용오차 이하이고 \(0<s,t<1\)이면, 그 점에 새 절점을 만들고 두 부재를 그 점에서 나눕니다. 한 부재의 끝점이 다른 부재 내부에 닿는 T형 접촉은 기존 절점에서 나눕니다. 핀 절점에서 힘의 평형은 그대로 유지되므로 체적은 변하지 않고, 이후 안정성·접힘 판정은 분할된 구조로 수행합니다.</p>
+
+<h2 id="s6"><span class="n">6</span>단면 결정과 강성 해석 (검증용)</h2>
+<h3>6.1 단면적 결정과 정리</h3>
+$$a_i=\max_k\left(\frac{\max(q_{ik},0)}{\sigma_T},\ \frac{\max(-q_{ik},0)}{\sigma_C}\right),\qquad a_i<\alpha\,\max_j a_j\ \Rightarrow\ \text{부재 제거}\ (\alpha\sim10^{-3})$$
+<h3>6.2 트러스 강성</h3>
+<p>부재 강성 \(k_i=E a_i/l_i\). 요소 강성행렬과 전체 강성행렬:</p>
+$$\mathbf K_e=\frac{Ea_i}{l_i}\begin{bmatrix}\mathbf d_i\mathbf d_i^{\mathsf T}&-\mathbf d_i\mathbf d_i^{\mathsf T}\\-\mathbf d_i\mathbf d_i^{\mathsf T}&\mathbf d_i\mathbf d_i^{\mathsf T}\end{bmatrix},\qquad
+\mathbf K=\mathbf B\,\mathrm{diag}\!\left(\frac{Ea_i}{l_i}\right)\mathbf B^{\mathsf T}$$
+$$\mathbf K\mathbf u=\mathbf f,\qquad q_i=\frac{Ea_i}{l_i}\,\mathbf B_{(:,i)}^{\mathsf T}\mathbf u,\qquad C=\mathbf f^{\mathsf T}\mathbf u\ (\text{compliance})$$
+<p>LP 해가 단일 하중에서 정정이면 강성 해석의 축력은 LP 축력과 일치하며, 모든 부재 응력이 허용응력(fully stressed)에 도달합니다. 부정정인 경우 차이가 생기므로 이 비교 자체가 검증 지표가 됩니다.</p>
+<h3>6.2a 처짐 형상 표시</h3>
+<p>선형 해석의 \(\mathbf u\)를 \(\mathbf x+\lambda\mathbf u\)로 그립니다. 자동 배율 \(\lambda_0=0.12\,D/\|\mathbf u\|_{\max}\)(\(D\): 설계 영역 대각선)에 슬라이더 배수 \(10^{s-1}\)을 곱합니다. 메커니즘이 남은 경우 해당 노드 자유도에 \(k_s=10^{-3}\,\overline{K_{ii}}\)의 약한 스프링을 더해 풀며, 이 결과는 참고용으로 표시합니다.</p>
+<h3>6.3 압축 부재 좌굴 검토 (후처리)</h3>
+$$-q_i\ \le\ \frac{\pi^2EI_i}{(\kappa l_i)^2},\qquad I_i=\frac{a_i^2}{4\pi}\ (\text{중실 원형}),\quad I_i\approx\frac{a_i\,r_m^2}{2}\ (\text{박육 원형관})$$
+<p>LP 단계에서는 좌굴을 고려하지 않으므로, 좌굴을 만족하지 않는 부재는 단면 확대 또는 국부 좌굴 제약을 포함한 재최적화(Tyas et al. 2006 계열)가 필요합니다.</p>
+
+<h2 id="s7"><span class="n">7</span>자유도·안정성 판정</h2>
+<h3>7.1 Maxwell 규칙 (필요조건)</h3>
+$$s-m=b-n_f\qquad(n_f=3n-c,\ c=\text{구속 자유도 수})$$
+<p>\(b\ge n_f\)는 필요조건일 뿐 충분조건이 아닙니다(부재 배치에 따라 국부적으로 과잉·부족이 공존 가능).</p>
+<h3>7.2 평형행렬 SVD (판정 기준)</h3>
+<p>구속 자유도를 제거한 \(\mathbf A=\mathbf B_{free}\ (n_f\times b)\)에 대해</p>
+$$\mathbf A=\mathbf U\boldsymbol\Sigma\mathbf V^{\mathsf T},\qquad r=\#\{\sigma_j>\tau\,\sigma_{max}\}$$
+$$m=n_f-r\ \ (\text{메커니즘 수}),\qquad s=b-r\ \ (\text{자기평형 응력 상태 수 = 부정정 차수})$$
+<table>
+<tr><th>부분공간</th><th>의미</th><th>활용</th></tr>
+<tr><td>\(\mathbf U_{(:,r+1:n_f)}\)</td><td>메커니즘 모드 (부재 신장 없이 가능한 절점 변위)</td><td>모드 진폭이 큰 노드 = 강접합/보강 후보</td></tr>
+<tr><td>\(\mathbf V_{(:,r+1:b)}\)</td><td>자기평형 축력 상태</td><td>부정정 여유도, 프리스트레스 검토</td></tr>
+</table>
+<p><b>판정</b>: \(m=0\)이면 1차 안정(kinematically determinate). 노드 \(j\)의 메커니즘 참여도:</p>
+$$\phi_j=\Big\|\mathbf U_{(3j:3j+3,\ r+1:n_f)}\Big\|_F$$
+<h3>7.3 국부 판정 (빠른 사전 필터)</h3>
+<p>노드 \(j\)에 연결된 부재 방향벡터 \(\mathbf D_j=[\mathbf d_1,\dots,\mathbf d_{k_j}]\)에 대해 \(\mathrm{rank}(\mathbf D_j)+(\text{구속 수})<3\)이면 국부 메커니즘입니다. 단, 사선 없는 정육면체처럼 <b>모든 노드가 국부 판정을 통과해도 전역 메커니즘</b>일 수 있으므로 7.2가 최종 기준입니다.</p>
+<h3>7.4 강성행렬 확인</h3>
+$$\lambda_{min}(\mathbf K)>\tau_K\,\lambda_{max}(\mathbf K)\quad(\tau_K\sim10^{-10})$$
+<div class="box"><p>\(m>0\)이면서 \(s>0\)인 경우, 무한소 메커니즘이 프리스트레스로 안정화될 수 있습니다(Pellegrino &amp; Calladine). 이때 기하강성 \(\mathbf K_G\)를 메커니즘 모드에 투영한 행렬이 양정치인지로 판정하나, 본 프로젝트에서는 보수적으로 불안정으로 취급합니다.</p></div>
+<div class="box warn"><p>SVD는 \(O(n_f^3)\)입니다. full ground structure가 아닌 <b>최적화 결과(정리된 소규모 구조)</b>에만 적용합니다. 수백~수천 자유도는 브라우저에서도 충분히 처리 가능합니다.</p></div>
+
+<h2 id="s8"><span class="n">8</span>메커니즘 처리</h2>
+<table>
+<tr><th>순서</th><th>방법</th><th>내용</th></tr>
+<tr><td>B (우선)</td><td>안정화 부재 추가</td><td>메커니즘 모드 \(\boldsymbol\mu\)를 막는 후보 부재: \(|\mathbf B_{(:,i)}^{\mathsf T}\boldsymbol\mu|\)가 큰 부재(그 모드에서 가장 크게 늘어나는 부재)를 최소 단면 \(a_{min}\)으로 추가, 또는 교란 하중 케이스로 LP 재실행</td></tr>
+<tr><td>A (장애물로 B 불가 시)</td><td>국부 강접합</td><td>\(\phi_j\)가 큰 노드에서 연결 부재를 빔 요소로 전환 → 휨으로 메커니즘을 구속</td></tr>
+</table>
+<h3>8.0 구현된 안정화 알고리즘 (웹 툴 v1)</h3>
+<ol>
+<li>SVD로 얻은 메커니즘 모드 기저 \(\mathbf N\)에 대해 후보 부재 \(c\)의 점수 \(\|\mathbf N^{\mathsf T}\mathbf b_c\|\sqrt{h/l_c}\)가 최대인 부재를 단면 \(a_{stab}=\beta\,a_{max}\)로 추가합니다. 후보는 활성 노드 사이의 한 칸 부재와 격자 직선을 따르는 체인 부재(중간 격자점 비점유)이고, 교차군 규칙을 계속 만족해야 합니다.</li>
+<li>추가 후 Householder 변환으로 \(\mathbf N\leftarrow\{\mathbf x\in\mathrm{span}\,\mathbf N:\mathbf b_c^{\mathsf T}\mathbf x=0\}\)를 갱신합니다(재분해 불필요).</li>
+<li>후보가 소진되면 인접 비활성 격자 노드를 활성화합니다. 그 노드의 부재 묶음이 만드는 rank 증가가 새 자유도 수를 넘어 순 메커니즘 수가 줄어드는 노드만 선택합니다(평면 트러스의 면외 메커니즘 대응).</li>
+<li>그래도 남는 메커니즘의 참여 노드(\(\phi_j>0.1\))는 강접합 후보(방식 A)로 표시합니다.</li>
+</ol>
+<h3>8.0a 접힘(크리스) 분석 — 강체 삼각형 면 (v6)</h3>
+<p>3부재 닫힌 루프(비퇴화 삼각형)를 강체 면으로 봅니다. 평형행렬의 메커니즘 모드 \(\mathbf v^{(k)}\)마다 각 삼각형 \((a,b,c)\)의 회전율 \(\boldsymbol\omega\)를</p>
+$$\mathbf v_j-\mathbf v_a=\boldsymbol\omega\times(\mathbf x_j-\mathbf x_a),\quad j=b,c$$
+<p>의 최소제곱해로 구하고, 변을 공유하는 두 삼각형의 \(\boldsymbol\omega\)가 모든 모드에서 같으면 같은 강체로 묶습니다. 다르면 그 공유 변이 <b>자유 힌지(접힘선)</b>입니다. 평면 위 삼각형 쌍의 면외 접힘도 1차 항으로 검출됩니다. 판정 기준은 전체 자유도 \(m=0\)(또는 과구속 \(s>0\))이며, 자유도 계산에는 단면 하한을 통과한 구조 부재만 포함됩니다.</p>
+<h3>8.0b 잠금·횡보강 부재</h3>
+<ul>
+<li>탐욕 선택: 메커니즘 모드 기저 \(\mathbf N\)에 대한 투영 \(\|\mathbf N^{\mathsf T}\mathbf b\|\sqrt{h/l}\)이 큰 후보부터 추가(대칭 궤도 단위, 교차 금지 유지). 후보는 활성 노드 간 한 칸 부재와 격자 직선 체인. <b>완전 고정 지지 노드는 자유도가 없는 고정점</b>으로 항상 연결 대상입니다.</li>
+<li>후보가 소진되면 인접 격자 노드 활성화(순 자유도 감소량 기준) → 긴 부재의 중간 격자점 활성화(부재 분할) → 두 노드 동시 활성화 순으로 시도합니다.</li>
+<li><b>v9 추가 후보</b>: 활성 절점 사이의 직선 부재(1셀 격자 부재가 아닌 것, 길이 \(\le 6h\))를 후보로 둡니다. 초기에는 격자 밖 절점(교차점·이동 노드·등분 보강점)이나 완전 고정 지지점이 한쪽 끝인 것과 \(1.75h\) 이내인 것만 넣어 후보 수를 제한합니다. 기존 부재나 같은 궤도의 거울상과 교차하는 후보는 제외합니다. 이 후보로 평면 트러스(다리 예제)의 면외 메커니즘을 지지선으로 직접 잠글 수 있어, 좌굴 검토 없이도 \(m=0\)이 됩니다.</li>
+<li><b>선택 가속</b>: 메커니즘 공간이 줄어드는 동안 후보 점수는 증가하지 않으므로, 이전 점수를 상한으로 쓰는 lazy-greedy(최대 힙)로 매 선택마다 소수의 후보만 다시 계산합니다. 새 절점이 활성화되면 그 절점에 닿는 후보만 상한을 초기화합니다. 기저 갱신 \(\mathbf N\leftarrow\mathbf N\mathbf H\)는 \((\mathbf N\mathbf H)_j=\mathbf N_j-2u_j\sum_i u_i\mathbf N_i\)로 \(O(k\,n)\)에 계산합니다.</li>
+<li>단면: \(A=\max\big(A_{brace},\ \beta\,P_c/\sigma_C\big)\). \(P_c\)는 양 끝 노드에 모이는 최대 압축력, \(\beta\)는 가새력 비율(기본 2%), \(A_{brace}\)는 사용자 하한(비우면 \(A_c\)).</li>
+</ul>
+<h3>8.0c 오일러 좌굴과 횡보강</h3>
+$$P_{cr}=\frac{\pi^2EI(A)}{L^2},\qquad \gamma\,P_c\le P_{cr},\qquad
+I(A)=\begin{cases}A^2/4\pi & \text{중실 원형}\\[2pt] \dfrac{\pi}{64}\big(D^4-(D-2t)^4\big),\ D^2=\dfrac{A\,k^2}{\pi(k-1)},\ k=D/t & \text{원형 강관}\end{cases}$$
+<p>초과한 병합 직선 부재는 \(L_{cr}=\pi\sqrt{EI/(\gamma P_c)}\) 이하가 되도록 중간 격자점을 골라 절점으로 만들고, 잠금 단계에서 그 절점을 주 구조부에 횡보강합니다. 횡보강이 불가능한 경우(주변에 붙잡을 구조가 없음) 분할하지 않고, 한 칸 길이로도 초과하는 경우와 함께 \(A=\sqrt{\gamma P_cL^2/(\pi^2E\,c_1)}\) (\(I=c_1A^2\))로 단면을 키웁니다.</p>
+<h3>8.0d 선형 검증 단면 보정 (FSD)</h3>
+<p>잠금 부재까지 포함한 구조의 선형 해석 축력 \(q_i\)로 \(A_i\leftarrow\max\big(A_i,\ q_i^+/\sigma_T,\ q_i^-/\sigma_C,\ \sqrt{\gamma q_i^-L_i^2/(\pi^2Ec_1)}\big)\)을 반복합니다(증가만, 최대 30회). 텐션 로드가 압축을 받으면 일반 부재로 재분류합니다.</p>
+<h3>8.1 혼합 요소 규칙</h3>
+<ul>
+<li>양 끝 모두 핀 → 트러스 요소(T3D2) 유지. 양 끝 회전을 모두 해제한 빔은 축 둘레 회전(spin) 영 강성 모드가 생깁니다.</li>
+<li>한쪽만 강접합 → 빔 요소(B31), 핀 쪽 끝은 휨모멘트 \(M_1,M_2\)만 해제(비틀림 \(T\)는 강접합 측에서 구속).</li>
+</ul>
+<h3>8.2 끝단 해제 — 정적 축약</h3>
+<p>해제할 자유도 \(c\), 유지할 자유도 \(r\)로 요소 강성을 분할하면</p>
+$$\tilde{\mathbf K}_{rr}=\mathbf K_{rr}-\mathbf K_{rc}\mathbf K_{cc}^{-1}\mathbf K_{cr}$$
+<p>Abaqus에서는 <code>*RELEASE</code> (B31 요소 끝단, 예: <code>S1, M1-M2</code>)로 대응합니다.</p>
+
+<h2 id="s9"><span class="n">9</span>3D 빔 요소 (확장 단계)</h2>
+<p>2절점 12자유도 \((u,v,w,\theta_x,\theta_y,\theta_z)\times2\). 국부 좌표계에서 Euler–Bernoulli 강성 성분:</p>
+$$k_{ax}=\frac{EA}{L},\quad k_{t}=\frac{GJ}{L},\quad
+\mathbf k_{b}^{(z)}=\frac{EI_z}{L^3}\begin{bmatrix}12&6L&-12&6L\\6L&4L^2&-6L&2L^2\\-12&-6L&12&-6L\\6L&2L^2&-6L&4L^2\end{bmatrix}$$
+<p>(\(y\)축 휨은 \(I_y\)로 같은 형태, 부호는 회전 방향 규약에 따름.) 좌표 변환:</p>
+$$\mathbf e_1=\mathbf d,\quad \mathbf e_2=\frac{\mathbf v\times\mathbf e_1}{\|\mathbf v\times\mathbf e_1\|},\quad \mathbf e_3=\mathbf e_1\times\mathbf e_2,\qquad
+\mathbf R=[\mathbf e_1\ \mathbf e_2\ \mathbf e_3]^{\mathsf T},\quad \mathbf T=\mathrm{diag}(\mathbf R,\mathbf R,\mathbf R,\mathbf R)$$
+$$\mathbf K_e=\mathbf T^{\mathsf T}\mathbf k_e\mathbf T$$
+<p>\(\mathbf v\)는 부재와 평행하지 않은 참조 벡터(보통 전역 \(z\), 수직 부재는 전역 \(x\)). 프레임 위상최적화로 갈 때는 \(a_i\to\rho_i^p a_0\) (SIMP식 페널티) 형태의 compliance 최소화가 되며 비볼록 문제가 됩니다(Fredricson et al. 2003).</p>
+
+<h2 id="s10"><span class="n">10</span>격자 외 노드와 기하 최적화</h2>
+<h3>10.1 직접 삽입 (권장)</h3>
+<p>Ground structure 정식화는 격자 규칙성을 요구하지 않으므로, 추가 노드 \(\mathbf x_p\)를 노드 리스트에 넣고 반경 \(R_{add}\) 안의 노드와 후보 부재를 생성한 뒤 §2.3 필터를 동일하게 적용합니다. 겹침 판정은 gcd 대신 <b>공선성 검사</b>로 바꿉니다: 다른 노드 \(\mathbf x_m\)이 선분 위에 있으면 \((\|(\mathbf x_m-\mathbf x_a)\times\mathbf d\|<\epsilon\) 이고 \(0<(\mathbf x_m-\mathbf x_a)\cdot\mathbf d<l)\) 제거.</p>
+<p>한 칸 규칙과의 정합: 추가 노드는 <b>자신을 포함하는 셀의 8개 꼭짓점</b>(및 같은 셀 안의 다른 추가 노드)에만 연결합니다. 이 부재들은 해당 셀의 면대각선·체대각선과 같은 평면에 놓일 수 있으므로, 그 셀 안에서는 일반 선분–선분 교차 검사(공면 판정 \(|(\mathbf x_c-\mathbf x_a)\cdot(\mathbf d_1\times\mathbf d_2)|<\epsilon\) 후 2D 교차 판정)로 \(\mathcal X\)를 보강합니다.</p>
+<h3>10.2 보간 방식 (격자 유지가 필수일 때)</h3>
+<p>점 \(\mathbf x_p\)가 격자 셀 내부 국부좌표 \((\xi,\eta,\zeta)\in[-1,1]^3\)에 있을 때, 3선형 형상함수로 하중을 셀의 8개 노드로 분배합니다.</p>
+$$N_a=\tfrac18(1+\xi\xi_a)(1+\eta\eta_a)(1+\zeta\zeta_a),\qquad \mathbf f_a=N_a(\xi,\eta,\zeta)\,\mathbf F_p,\qquad \mathbf u_p=\sum_{a=1}^{8}N_a\mathbf u_a$$
+<div class="box warn"><p>보간은 하중을 8개 점하중으로 바꾸므로 최적 구조 자체가 달라집니다(1점 집중 대신 8점으로 분산된 부재가 생김). 정확한 하중점이 중요하면 10.1을 사용하십시오.</p></div>
+<h3>10.3 기하 최적화 (rationalization)</h3>
+<p>LP로 위상을 얻은 뒤, 노드 좌표 \(\mathbf x\)를 변수로 추가해 체적을 더 줄입니다.</p>
+$$\min_{\mathbf x,\ \mathbf q^\pm}\ \sum_i (l_i(\mathbf x)+s)\Big(\frac{q_i^+}{\sigma_T}+\frac{q_i^-}{\sigma_C}\Big)\quad\text{s.t.}\quad \mathbf B(\mathbf x)(\mathbf q^+-\mathbf q^-)=\mathbf f$$
+$$\frac{\partial l_i}{\partial\mathbf x_b}=\mathbf d_i,\qquad \frac{\partial l_i}{\partial\mathbf x_a}=-\mathbf d_i$$
+<p>비선형이므로 순차선형계획(SLP, 이동 한계 포함)으로 풀고, 거리가 \(\epsilon_{merge}\) 이하로 가까워진 노드는 병합합니다(He &amp; Gilbert 2015). 지지/하중 노드와 장애물 경계는 이동 제약으로 고정합니다. 대안으로 force density 기반 동시 최적화(Ohsaki &amp; Hayashi 2017)도 있습니다.</p>
+<p><b>구현 (웹 툴 v9, 토글)</b>: 현재 위상(존재 부재)과 해 \((\mathbf a^0,\mathbf q^0)\) 주변에서 노드 이동량 \(\boldsymbol\delta\)에 대해 선형화한 LP를 풉니다.</p>
+$$\min_{\mathbf a,\mathbf q,\boldsymbol\delta}\ \sum_i (l_i^0+s)\,a_i+\sum_i a_i^0\,\mathbf d_i^{\mathsf T}(\boldsymbol\delta_{b_i}-\boldsymbol\delta_{a_i})$$
+$$\mathbf B(\mathbf x^0)\,\mathbf q_k+\sum_i q_{ik}^0\,\frac{\partial\mathbf B_{(:,i)}}{\partial\mathbf x}\boldsymbol\delta=\mathbf f_k,\qquad \frac{\partial\mathbf d_i}{\partial(\mathbf x_b-\mathbf x_a)}=\frac{\mathbf I-\mathbf d_i\mathbf d_i^{\mathsf T}}{l_i}$$
+$$-\sigma_C a_i\le q_{ik}\le\sigma_T a_i,\qquad |\delta_{jt}|\le\mu,\qquad |x_{jt}+\delta_{jt}-x^{grid}_{jt}|\le R\,h,\qquad \mathbf x\in\Omega$$
+<ul>
+<li>이동하지 않는 노드: 지지 영역·하중 영역 노드, 사용자 추가 노드. 2D 모드에서는 평면 밖 성분을 0으로 둡니다.</li>
+<li>스텝마다 \(\boldsymbol\delta\)를 거울 궤도 평균으로 대칭화하고, 장애물 안으로 들어가거나 연결 부재가 장애물을 관통하는 노드는 그 스텝에서 되돌립니다.</li>
+<li>채택 판정: 새 좌표에서 위상을 고정한 정확한 LP(§4, 단면 하한 \(a_i\ge a_i^{lo}\) 포함)를 다시 풀어 체적이 줄면 채택하고, 줄지 않으면 \(\mu\leftarrow\mu/2\)로 줄입니다. 기본값 \(\mu_0=0.2h\), \(R=0.5h\), \(\mu<0.005h\) 또는 40회에서 종료합니다.</li>
+<li>종료 후 \(\epsilon_{merge}=0.1h\) 이내로 가까워진 노드를 병합(고정 노드 쪽으로, 둘 다 자유이면 중점)하고 다시 풉니다. 이동한 노드는 격자 밖 새 절점으로 기록하며, 비게 된 원래 격자점은 잠금 부재 탐색에서 제외합니다.</li>
+<li>이동된 구조에 대해 단면 하한·좌굴 횡보강·잠금·FSD를 다시 수행합니다. 격자 밖 절점의 잠금 부재는 반경 \(1.75h\) 이내의 활성 절점과 잇는 직선 부재를 후보로 쓰며, 기존 부재와 교차하는 후보는 제외합니다. 장거리 압축재의 횡보강점은 부재 위 등분점에 새 절점으로 만듭니다.</li>
+<li>균일 단면 모드에는 적용하지 않습니다.</li>
+</ul>
+
+<h2 id="s11"><span class="n">11</span>웹 구현 구조 (브라우저 단독 실행)</h2>
+<table>
+<tr><th>모듈</th><th>역할</th><th>후보 라이브러리 / 방식</th></tr>
+<tr><td>UI · 3D 뷰</td><td>격자, 영역 박스(지지/하중/장애물), 결과 부재(단면=굵기, 인장/압축=색)</td><td>Three.js (OrbitControls, TransformControls로 영역 박스 편집)</td></tr>
+<tr><td>Ground structure</td><td>노드/후보 부재 생성, 필터, 장애물 교차</td><td>자체 JS (TypedArray)</td></tr>
+<tr><td>LP 솔버</td><td>§4 정식화(LP는 IPM, 교차 제약은 MILP 분기한정 또는 고정 휴리스틱)</td><td>HiGHS 1.15.3 WebAssembly — 페이지에 내장하여 Web Worker에서 실행</td></tr>
+<tr><td>선형대수</td><td>SVD(§7), \(\mathbf K\mathbf u=\mathbf f\)</td><td>소규모: 밀집 SVD/Cholesky, 대규모: 희소 CSR + PCG</td></tr>
+<tr><td>연산 분리</td><td>UI 멈춤 방지</td><td>Web Worker (LP·SVD·스캔을 워커에서 실행)</td></tr>
+<tr><td>입출력</td><td>문제 정의 JSON 저장/불러오기, 결과 내보내기</td><td>JSON, CSV, Abaqus <code>.inp</code> (T3D2/B31 + <code>*RELEASE</code>)</td></tr>
+</table>
+
+<h2 id="ref">참고문헌</h2>
+<ol class="ref">
+<li>Dorn, W.S., Gomory, R.E., Greenberg, H.J. (1964). Automatic design of optimal structures. <i>Journal de Mécanique</i>, 3, 25–52. <span class="tag">ground structure 원점</span></li>
+<li>Bendsøe, M.P., Ben-Tal, A., Zowe, J. (1994). Optimization methods for truss geometry and topology design. <i>Structural Optimization</i>, 7, 141–159. <span class="tag">정식화 비교</span></li>
+<li>Gilbert, M., Tyas, A. (2003). Layout optimization of large-scale pin-jointed frames. <i>Engineering Computations</i>, 20(8), 1044–1064. <span class="tag">§5</span></li>
+<li>Zegard, T., Paulino, G.H. (2014). GRAND — Ground structure based topology optimization for arbitrary 2D domains using MATLAB. <i>Struct. Multidiscip. Optim.</i>, 50(5), 861–882. doi:10.1007/s00158-014-1085-z <span class="tag">§2</span></li>
+<li>Zegard, T., Paulino, G.H. (2015). GRAND3 — Ground structure based topology optimization for arbitrary 3D domains using MATLAB. <i>Struct. Multidiscip. Optim.</i>, 52(6), 1161–1184. <span class="tag">§2 3D·구멍 영역</span></li>
+<li>He, L., Gilbert, M., Song, X. (2019). A Python script for adaptive layout optimization of trusses. <i>Struct. Multidiscip. Optim.</i>, 60(2), 835–847. doi:10.1007/s00158-019-02226-6 <span class="tag">§4–5 구현</span></li>
+<li>He, L., Gilbert, M. (2015). Rationalization of trusses generated via layout optimization. <i>Struct. Multidiscip. Optim.</i>, 52, 677–694. <span class="tag">§10.3</span></li>
+<li>Achtziger, W. (2007). On simultaneous optimization of truss geometry and topology. <i>Struct. Multidiscip. Optim.</i>, 33, 285–304. <span class="tag">§10.3 이론</span></li>
+<li>Ohsaki, M., Hayashi, K. (2017). Force density method for simultaneous optimization of geometry and topology of trusses. <i>Struct. Multidiscip. Optim.</i>, 56, 1157–1168. doi:10.1007/s00158-017-1710-8 <span class="tag">§10.3 대안</span></li>
+<li>Fredricson, H., Johansen, T., Klarbring, A., Petersson, J. (2003). Topology optimization of frame structures with flexible joints. <i>Struct. Multidiscip. Optim.</i>, 25(3), 199–214. <span class="tag">§9</span></li>
+<li>Fairclough, H., Gilbert, M. (2020). Layout optimization of simplified trusses using mixed integer linear programming with runtime generation of constraints. <i>Struct. Multidiscip. Optim.</i>, 61. <span class="tag">§4.4 MILP</span></li>
+<li>Pellegrino, S., Calladine, C.R. (1986). Matrix analysis of statically and kinematically indeterminate frameworks. <i>Int. J. Solids Struct.</i>, 22(4), 409–428. <span class="tag">§7</span></li>
+<li>Pellegrino, S. (1993). Structural computations with the singular value decomposition of the equilibrium matrix. <i>Int. J. Solids Struct.</i>, 30(21), 3025–3035. <span class="tag">§7.2 SVD</span></li>
+<li>Maxwell, J.C. (1864). On the calculation of the equilibrium and stiffness of frames. <i>Philosophical Magazine</i>, 27, 294–299. <span class="tag">§7.1</span></li>
+<li>Tyas, A., Gilbert, M., Pritchard, T. (2006). Practical plastic layout optimization of trusses incorporating stability considerations. <i>Computers &amp; Structures</i>, 84, 115–126. <span class="tag">§6.3 안정성</span></li>
+<li>McGuire, W., Gallagher, R.H., Ziemian, R.D. (2000). <i>Matrix Structural Analysis</i>, 2nd ed. Wiley. <span class="tag">§6, §9 요소 강성</span></li>
+<li>Huangfu, Q., Hall, J.A.J. (2018). Parallelizing the dual revised simplex method. <i>Mathematical Programming Computation</i>, 10, 119–142. <span class="tag">HiGHS</span></li>
+</ol>
+</main>
+</div>
+</body>
+</html>

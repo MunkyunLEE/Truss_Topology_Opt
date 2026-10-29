@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Topology Optimization</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen workbench — input rail (left) · 3D viewport with result strip and log (right); stacks on phones */
+:root{
+  --bg:#eef0ee; --panel:#f8f9f7; --ink:#1b2320; --muted:#5f6a64; --line:#d5dad5; --field:#ffffff;
+  --accent:#1d5c57; --accent-ink:#ffffff; --view:#e4e8e4; --gridpt:#8a958f;
+  --tension:#c0392b; --compression:#2a64a8; --stab:#7d8530; --mech:#b02fb8; --rod:#d98c80;
+  --support:#2f8a55; --load:#d27a1f; --obstacle:#6b7470; --warn:#a8580d; --gov:#c9a400; --deck:#8d6e3f; --ok:#2f7a4a;
+  --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141917; --panel:#1a201e; --ink:#e3e8e4; --muted:#93a099; --line:#2c3531; --field:#111614;
+  --accent:#5fb3a8; --accent-ink:#0d1413; --view:#0f1312; --gridpt:#5d6863;
+  --tension:#ec6a58; --compression:#6aa3e8; --stab:#b3bb5a; --mech:#d968e0; --rod:#f2ada3;
+  --support:#55b97d; --load:#eda04e; --obstacle:#7d8782; --warn:#e3a25b; --gov:#f2d43a; --deck:#c9a575; --ok:#6cc08a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141917; --panel:#1a201e; --ink:#e3e8e4; --muted:#93a099; --line:#2c3531; --field:#111614;
+  --accent:#5fb3a8; --accent-ink:#0d1413; --view:#0f1312; --gridpt:#5d6863;
+  --tension:#ec6a58; --compression:#6aa3e8; --stab:#b3bb5a; --mech:#d968e0; --rod:#f2ada3;
+  --support:#55b97d; --load:#eda04e; --obstacle:#7d8782; --warn:#e3a25b; --gov:#f2d43a; --deck:#c9a575; --ok:#6cc08a; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:13px/1.5 var(--sans)}
+*{box-sizing:border-box}
+.app{height:100%;display:grid;grid-template-columns:minmax(300px,360px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+header{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.01em}
+header .sub{color:var(--muted);font-size:12px}
+header .sp{flex:1}
+aside{border-right:1px solid var(--line);background:var(--panel);overflow:auto;padding:4px max(16px,env(safe-area-inset-left,0px)) 24px 16px}
+section.blk{padding-block:12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+section.blk:last-child{border-bottom:0}
+.blk h2{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.blk h2 .sp{flex:1}
+.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.row.r4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.row.r2{grid-template-columns:repeat(2,minmax(0,1fr))}
+label.f{display:grid;gap:2px;font-size:11px;color:var(--muted);min-width:0}
+input[type=number],input[type=text],select{width:100%;min-width:0;font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:4px 6px}
+input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px}
+.chk input{accent-color:var(--accent)}
+button{font:500 12px var(--sans);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:4px;padding:4px 9px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);padding:7px 14px;font-weight:600}
+button.primary:disabled{opacity:.55;cursor:progress}
+button.mini{padding:1px 7px;font-size:11px}
+button.x{border:0;background:none;color:var(--muted);font-size:15px;line-height:1;padding:0 4px}
+.reg{border:1px solid var(--line);border-radius:var(--r);padding:8px;display:grid;gap:6px;background:var(--field)}
+.reg.hot{border-color:var(--accent)}
+.reg .hd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+.reg .hd .sp{flex:1}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600}
+.tag i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.hint{font-size:11px;color:var(--muted);margin:0}
+.main{display:grid;grid-template-rows:minmax(0,1fr) auto;min-width:0;min-height:0}
+.view{position:relative;background:var(--view);min-height:0}
+.view canvas{display:block;width:100%;height:100%}
+.vt{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.vt>*{pointer-events:auto}
+.vt .chk{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px}
+.legend{position:absolute;left:10px;bottom:10px;display:flex;flex-wrap:wrap;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 10px;font-size:11px}
+.stale{position:absolute;right:10px;bottom:10px;background:var(--panel);border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:3px 9px;font-size:11px;font-weight:600}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:4px 8px;font:11px/1.45 var(--mono);white-space:pre;color:var(--ink)}
+.bottom{border-top:1px solid var(--line);background:var(--panel);display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);min-height:0}
+.stats{padding:10px 16px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 14px;align-content:start;border-right:1px solid var(--line)}
+.st{display:grid;gap:1px;min-width:0}
+.st b{font:500 15px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st span{font-size:11px;color:var(--muted)}
+.pill{display:inline-block;font:600 11px var(--sans);padding:1px 8px;border-radius:10px;border:1px solid currentColor}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}
+.exp{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:4px}
+.exp .lbl{font-size:11px;color:var(--muted);margin-right:2px}
+.log{margin:0;padding:10px 16px;font:11px/1.55 var(--mono);color:var(--muted);overflow:auto;max-height:168px;white-space:pre-wrap;word-break:break-word}
+.log .e{color:var(--warn)}
+dialog{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--ink);width:min(760px,calc(100vw - 32px));padding:14px}
+dialog::backdrop{background:rgb(0 0 0 / .35)}
+dialog textarea{width:100%;height:50vh;font:11px var(--mono);background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
+dialog .bar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+dialog .bar h3{margin:0;font-size:13px;flex:1}
+[hidden]{display:none!important}
+.vt{justify-content:space-between}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-radius:0;background:transparent;padding:3px 9px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px;display:flex;align-items:center;gap:6px;font-size:12px}
+.tool input[type=number]{width:74px}
+.tool select{width:auto}
+.tool input[type=range]{width:90px;accent-color:var(--accent)}
+.badge{font-size:11px;font-weight:600;color:var(--warn)}
+.hintbar{position:absolute;right:10px;bottom:46px;max-width:min(360px,calc(100% - 20px));background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:4px 9px;font-size:11px;color:var(--ink)}
+.reg.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.view.drawing canvas{cursor:crosshair}
+.kinds{display:flex;flex-wrap:wrap;gap:12px}
+@media (max-width:820px){
+  html,body{height:auto}
+  .app{height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+  .main{grid-row:2}
+  .view{height:66vh}
+  aside{grid-row:3;border-right:0;border-top:1px solid var(--line);overflow:visible;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  .bottom{grid-template-columns:minmax(0,1fr)}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));border-right:0;border-bottom:1px solid var(--line)}
+  header .sub{display:none}
+  .legend{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Grid Topology Optimization</h1>
+    <span class="sub">3D ground structure · 핀접합 트러스 · 전 연결(부재 추가법) · X 교차 금지 · 단위 mm · N · MPa</span>
+    <span class="sp"></span>
+    <button id="btnRun" class="primary">최적화 실행</button>
+  </header>
+
+  <aside id="panel">
+    <section class="blk">
+      <h2>격자</h2>
+      <div class="row">
+        <label class="f">원점 x<input id="ox" type="number" step="any"></label>
+        <label class="f">원점 y<input id="oy" type="number" step="any"></label>
+        <label class="f">원점 z<input id="oz" type="number" step="any"></label>
+      </div>
+      <div class="row r4">
+        <label class="f">간격 h<input id="h" type="number" min="1" step="any"></label>
+        <label class="f">셀 nx<input id="nx" type="number" min="0" step="1"></label>
+        <label class="f">셀 ny<input id="ny" type="number" min="0" step="1"></label>
+        <label class="f">셀 nz<input id="nz" type="number" min="0" step="1"></label>
+      </div>
+      <p class="hint" id="gridInfo"></p>
+      <div class="kinds">
+        <span class="hint" style="width:100%">허용 부재 종류</span>
+        <label class="chk"><input type="checkbox" id="k0"> 모서리 h</label>
+        <label class="chk"><input type="checkbox" id="k1"> 면대각 √2h</label>
+        <label class="chk"><input type="checkbox" id="k2"> 체대각 √3h</label>
+      </div>
+    </section>
+
+    <section class="blk">
+      <h2>재료</h2>
+      <div class="row r4">
+        <label class="f">E [MPa]<input id="E" type="number" step="any"></label>
+        <label class="f">ν<input id="nu" type="number" step="any"></label>
+        <label class="f">σT [MPa]<input id="sT" type="number" step="any"></label>
+        <label class="f">σC [MPa]<input id="sC" type="number" step="any"></label>
+      </div>
+    </section>
+
+    <section class="blk">
+      <h2>영역 조건 <span class="sp"></span>
+        <button class="mini" data-add="support">+ 지지</button>
+        <button class="mini" data-add="load">+ 하중</button>
+        <button class="mini" data-add="obstacle">+ 장애물</button>
+      </h2>
+      <p class="hint">박스 안의 노드(경계 포함)에 조건이 걸립니다. 뷰포트 우측 상단 도구로 그리고, 박스를 클릭한 뒤 면 핸들을 끌어 늘릴 수 있습니다. 선택한 박스는 Delete 키로 지웁니다.</p>
+      <div id="regions" style="display:grid;gap:8px"></div>
+    </section>
+
+    <section class="blk">
+      <h2>격자 외 노드 <span class="sp"></span><button class="mini" id="addNode">+ 노드</button></h2>
+      <p class="hint">자신을 포함하는 셀의 꼭짓점 8개와만 연결됩니다. 하중점으로 쓰려면 하중 박스로 감싸 주세요.</p>
+      <div id="extras" style="display:grid;gap:6px"></div>
+    </section>
+
+    <section class="blk">
+      <h2>목적함수</h2>
+      <div class="row r2">
+        <label class="f">단면 조건
+          <select id="objective"><option value="roundup">최소 단면: 올림 + 재최적화 + 가는 부재 정리</option><option value="minA">단면 비율 제한 (제거 우선, 이전 방식)</option><option value="volume">가변 단면 · 제한 없음</option></select></label>
+        <label class="f" id="fMinA">최소 단면 A_min [mm²] (비우면 비율)<input id="minA" type="number" min="0" step="any" placeholder="자동"></label>
+      </div>
+      <div class="row r2" id="ratioBox">
+        <label class="f">압축·일반 하한 r_c [% A_max]<input id="ratioC" type="number" min="0" max="100" step="any"></label>
+        <label class="f" id="fRatioT">텐션 로드 하한 r_t [% A_max]<input id="ratioT" type="number" min="0" max="100" step="any"></label>
+      </div>
+      <label class="chk" id="fAllowRods"><input id="allowRods" type="checkbox"> 텐션 로드 허용 (모든 케이스 인장 부재는 r_t까지 가늘게)</label>
+      <p class="hint" id="minAHint">부재는 없거나, 있으면 하한 이상입니다. 하한 미만 부재는 제거하고 나머지 부재로 힘을 우회시켜 다시 풀며, 제거하면 평형이 안 되는 부재만 하한으로 키웁니다. 텐션 로드를 허용하면 인장 전용 부재는 r_t까지 가늘게 남깁니다. 잠금·횡보강 부재는 압축 하한 이상입니다.</p>
+      <div id="roundBox" style="display:grid;gap:8px">
+        <div class="row r2">
+          <label class="f">부재 정리 허용 체적 증가 [%]<input id="simplifyTol" type="number" min="0" step="any"></label>
+          <label class="f">단면 카탈로그 [mm², 쉼표] (선택)<input id="catalog" type="text" placeholder="예: 50, 80, 120, 200"></label>
+        </div>
+        <p class="hint">① 단면 제한 없이 LP로 위상과 필요 단면을 구하고 ② A_min보다 가는 부재를 A_min으로 올린 뒤, 쓰인 부재만으로 다시 풀어 가는 부재의 여유를 다른 부재 축소에 씁니다. ③ A_min 부재를 하나씩 빼고 주변 부재로 힘을 우회시켜, 부재 수가 늘지 않으면서 체적이 줄거나(또는 허용치 안에서 부재가 줄면) 채택합니다. 카탈로그를 주면 최소 단면은 카탈로그 최솟값이고, 최종 단면은 바로 위 규격으로 올림합니다.</p>
+      </div>
+    </section>
+
+    <section class="blk">
+      <h2>좌굴 · 보강</h2>
+      <label class="chk"><input id="buckling" type="checkbox"> 오일러 좌굴 검토 (초과 시 중간 격자점 횡보강, 불가하면 단면 증대)</label>
+      <div class="row r4">
+        <label class="f">단면 가정<select id="section"><option value="tube">원형 강관</option><option value="solid">중실 원형</option></select></label>
+        <label class="f" id="fDt">D/t<input id="DoverT" type="number" min="2.5" step="any"></label>
+        <label class="f">안전율 γ<input id="gammaB" type="number" min="1" step="any"></label>
+        <label class="f">가새력 [% 압축력]<input id="braceRatio" type="number" min="0" step="any"></label>
+      </div>
+      <div class="row r2">
+        <label class="f">잠금·보강 부재 하한 [% A_max] (비우면 r_c)<input id="braceMin" type="number" min="0" step="any" placeholder="r_c와 같음"></label>
+      </div>
+      <p class="hint">잠금·횡보강 부재 단면 = max(이 하한, 가새력 / σC). 접힘 힌지와 좌굴 횡보강에 쓰이며, 자유도 판정에 구조 부재로 포함됩니다.</p>
+      <label class="chk"><input id="fsd" type="checkbox"> 선형 검증 단면 보정 (응력·좌굴 이용률 ≤ 1이 될 때까지 단면 증대)</label>
+    </section>
+
+    <section class="blk">
+      <h2>최적화 옵션</h2>
+      <div class="row r2">
+        <label class="f">부재 연결 범위
+          <select id="connect"><option value="full">전 연결 (부재 추가법)</option><option value="cell">1셀 이내</option></select></label>
+        <label class="f">최대 부재 길이 [셀] (0 = 무제한)<input id="maxLen" type="number" min="0" step="1"></label>
+      </div>
+      <p class="hint">전 연결: 모든 노드 쌍(중간에 노드가 없는 직선)을 후보로 두고, 1셀 연결 LP에서 시작해 쌍대 가상변형률이 허용치를 넘는 부재만 추가하며 반복합니다(전 연결 최적해와 동일). 장거리 부재끼리의 교차점은 절점으로 분할합니다.</p>
+      <label class="chk"><input id="geomOpt" type="checkbox"> 기하 최적화 (최적화 후 자유 노드를 격자 밖 연속 위치로 이동)</label>
+      <div class="row r2" id="geomOpts">
+        <label class="f">누적 이동 한계 [h 배수]<input id="geomRange" type="number" min="0" step="0.05"></label>
+        <label class="f">노드 병합 거리 [h 배수]<input id="geomMerge" type="number" min="0" step="0.01"></label>
+      </div>
+      <div class="row r2">
+        <label class="f" id="fCross">교차 처리
+          <select id="crossMethod"><option value="auto">자동</option><option value="milp">MILP (정확)</option><option value="fix">고정 휴리스틱 (빠름)</option></select></label>
+        <label class="f">MILP 시간 제한 [s]<input id="timeLimit" type="number" min="1" step="1"></label>
+      </div>
+      <div class="row r2">
+        <label class="f">지지 영역별 최소 반력 분담 [%]<input id="supportShare" type="number" min="0" max="100" step="any"></label>
+        <label class="f">횡방향 교란 하중 비율 (0 = 끔)<input id="perturb" type="number" min="0" step="0.01"></label>
+      </div>
+      <p class="hint">반력 분담: 각 지지 영역이 주 하중(케이스 1) 방향 반력의 이 비율 이상을 받습니다. 횡방향 교란: 주 하중에 수직인 두 방향으로 하중점에 작은 하중 케이스를 추가해 평면 해를 막습니다(한 칸 격자에서는 가는 부재가 많아질 수 있음).</p>
+      <div class="kinds">
+        <span class="hint" style="width:100%">대칭 강제 (설계 영역 중앙면, 거울 부재의 단면을 같게)</span>
+        <label class="chk"><input type="checkbox" id="symAuto"> 자동 감지</label>
+        <label class="chk"><input type="checkbox" id="sym0"> x</label>
+        <label class="chk"><input type="checkbox" id="sym1"> y</label>
+        <label class="chk"><input type="checkbox" id="sym2"> z</label>
+        <span class="hint" id="symInfo"></span>
+      </div>
+      <div class="row r2">
+        <label class="f">Joint cost s [mm]<input id="jointCost" type="number" min="0" step="any"></label>
+      </div>
+      <div class="row r2" id="volOpts">
+        <label class="f">단면 컷오프 A/Amax<input id="areaCut" type="number" min="0" step="any"></label>
+        <label class="f">잠금 부재 단면비 (제한 없음 모드)<input id="stabArea" type="number" min="0" step="any"></label>
+      </div>
+      <label class="chk"><input id="noCrossing" type="checkbox"> X 교차 금지 (삼각형 가새만)</label>
+      <label class="chk"><input id="mergeCollinear" type="checkbox"> 직선상 무하중 중간 노드 병합 (연속 부재로 취급)</label>
+      <label class="chk"><input id="stabilize" type="checkbox"> 접힘·메커니즘 잠금 부재 자동 추가</label>
+    </section>
+
+    <section class="blk">
+      <h2>문제 파일 (JSON)</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button id="btnExportProblem">문제 JSON 보기·저장</button>
+        <button id="btnImport">붙여넣기로 불러오기</button>
+      </div>
+      <label class="f">파일 선택 또는 뷰포트로 끌어다 놓기<input id="fileIn" type="file" accept=".json,application/json" style="font-size:11px"></label>
+    </section>
+  </aside>
+
+  <div class="main">
+    <div class="view" id="view">
+      <canvas id="cv" aria-label="3D 뷰포트"></canvas>
+      <div class="vt">
+        <div class="grp">
+          <label class="chk"><input type="checkbox" id="vGrid" checked> 격자 노드</label>
+          <label class="chk"><input type="checkbox" id="vGS"> 후보 부재</label>
+          <label class="chk"><input type="checkbox" id="vReg" checked> 영역</label>
+          <label class="chk"><input type="checkbox" id="vRes" checked> 결과</label>
+          <label class="chk"><input type="checkbox" id="vMech" checked> 강접합 후보</label>
+          <label class="chk"><input type="checkbox" id="vFold"> 접힘 분석 (잠금 전)</label>
+          <span class="tool"><label class="chk" style="padding:0;border:0"><input type="checkbox" id="vDef"> 처짐</label>
+            <input type="range" id="defScale" min="0" max="3" step="0.05" value="1" aria-label="처짐 배율">
+            <select id="defCase" aria-label="하중 케이스"></select><span id="defInfo" class="hint"></span></span>
+        </div>
+        <div class="grp">
+          <div class="seg" role="group" aria-label="뷰">
+            <button data-view="3d" aria-pressed="true">3D</button><button data-view="xy" aria-pressed="false">XY</button><button data-view="xz" aria-pressed="false">XZ</button><button data-view="yz" aria-pressed="false">YZ</button>
+          </div>
+          <div class="seg" role="group" aria-label="영역 그리기">
+            <button data-draw="support" aria-pressed="false">지지</button><button data-draw="load" aria-pressed="false">하중</button><button data-draw="obstacle" aria-pressed="false">장애물</button>
+          </div>
+          <span class="tool"><span id="lvlLab">z 평면</span><button class="mini" id="lvlDn" aria-label="작업 평면 내리기">−</button><input type="number" id="lvl" step="any" aria-label="작업 평면 위치"><button class="mini" id="lvlUp" aria-label="작업 평면 올리기">+</button></span>
+          <span class="tool">스냅 <select id="snap"><option value="1">격자</option><option value="0.5">½ 격자</option><option value="0">자유</option></select></span>
+          <button id="vFit">시점 맞춤</button>
+        </div>
+      </div>
+      <div class="hintbar" id="drawHint" hidden></div>
+      <div class="legend">
+        <span class="tag"><i style="background:var(--tension)"></i>인장</span>
+        <span class="tag"><i style="background:var(--compression)"></i>압축</span>
+        <span class="tag" id="legRod" hidden><i style="background:var(--rod)"></i>텐션 로드</span>
+        <span class="tag"><i style="background:var(--gov)"></i>하중 한계 지배 부재</span>
+        <span class="tag"><i style="background:var(--stab)"></i>잠금·횡보강</span>
+        <span class="tag"><i style="background:var(--accent)"></i>횡보강 절점</span>
+        <span class="tag"><i style="background:var(--mech);border-radius:50%"></i>강접합 후보 노드</span>
+        <span class="tag"><i style="background:var(--support)"></i>지지</span>
+        <span class="tag"><i style="background:var(--load)"></i>하중</span>
+        <span class="tag"><i style="background:var(--obstacle)"></i>장애물</span>
+      </div>
+      <div class="stale" id="stale" hidden>입력이 바뀌었습니다 — 다시 실행하세요</div>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+    <div class="bottom">
+      <div class="stats" id="stats"></div>
+      <pre class="log" id="log" aria-live="polite"></pre>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="bar"><h3 id="dlgTitle"></h3><button id="dlgCopy">복사</button><button id="dlgSave">파일로 저장</button><button id="dlgLoad" hidden>불러오기</button><button id="dlgClose">닫기</button></div>
+  <textarea id="dlgText" spellcheck="false"></textarea>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script type="text/plain" id="srcHighs">importScripts(self.HIGHS_CDN + "highs.js");</script>
+<script type="text/plain" id="srcCore">importScripts(self.GSTO_CORE_URL);</script>
+<script type="text/plain" id="wasmB64"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const DEFAULT = {
+  grid: { origin: [0,0,0], h: 100, nx: 8, ny: 3, nz: 3 },
+  material: { E: 205000, nu: 0.3, sigmaT: 235, sigmaC: 235 },
+  regions: [
+    { type: 'support', min: [0,0,0], max: [0,300,300], fix: [1,1,1], faceNodes: false },
+    { type: 'obstacle', min: [300,-10,100], max: [500,310,200], faceNodes: false },
+    { type: 'load', min: [740,140,40], max: [760,160,60], F: [0,0,-10000], case: 1, faceNodes: false },
+  ],
+  extraNodes: [[750,150,50]],
+  options: { objective: 'roundup', minA: 0, ratioC: 0.2, ratioT: 0.01, allowRods: false, simplifyTol: 0.02, catalog: [], buckling: true, section: 'tube', DoverT: 20, gammaB: 2, braceRatio: 0.02, fsd: true, kinds: [1,1,1],
+    symAuto: true, symmetry: [0,0,0], supportShare: 0.1,
+    connect: 'full', maxLen: 0, geomOpt: false, geomRange: 0.5, geomMerge: 0.1,
+    crossMethod: 'auto', timeLimit: 30, jointCost: 0, perturb: 0, areaCut: 0.001, stabArea: 0.01, noCrossing: true, mergeCollinear: true, stabilize: true },
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+let S = clone(DEFAULT), result = null, running = false, hotRegion = -1, sel = -1;
+const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+
+// ---------- worker (HiGHS WASM + core: embedded in the standalone build, loaded from files/CDN in the web build) ----------
+let worker = null, wasmBuf = null;
+const HIGHS_CDN = 'https://cdn.jsdelivr.net/npm/highs@1.15.3/build/';
+async function wasmBytes() {
+  if (!wasmBuf) {
+    const t = $('wasmB64').textContent.trim();
+    if (t && !t.startsWith('__')) { const b = atob(t), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); wasmBuf = u.buffer; }
+    else { const r = await fetch(HIGHS_CDN + 'highs.wasm'); if (!r.ok) throw new Error(`HiGHS WASM 다운로드 실패 (HTTP ${r.status})`); wasmBuf = await r.arrayBuffer(); }
+  }
+  return wasmBuf.slice(0);
+}
+function makeWorker() {
+  const body = `
+self.GSTO_CORE_URL = ${JSON.stringify(new URL('src/core.js', location.href).href)};
+self.HIGHS_CDN = ${JSON.stringify(HIGHS_CDN)};
+${$('srcHighs').textContent}
+${$('srcCore').textContent}
+let H = null;
+self.onmessage = async ev => {
+  const { P, wasm } = ev.data;
+  const log = s => self.postMessage({ type: 'log', s });
+  try {
+    if (!H) { log('HiGHS 솔버 로드 중…'); H = await Module({ print: () => {}, printErr: () => {}, instantiateWasm: (imports, done) => { WebAssembly.instantiate(wasm, imports).then(r => done(r.instance, r.module)); return {}; } }); }
+    const R = await GSTO.run(H, P, log);
+    if (!R.ok) { self.postMessage({ type: 'done', ok: false, msg: R.msg }); return; }
+    const GS = R.GS, gsE = new Int32Array(GS.E.length*2); GS.E.forEach(([a,b], i) => { gsE[2*i] = a; gsE[2*i+1] = b; });
+    self.postMessage({ type: 'done', ok: true,
+      X: GS.X, nGrid: GS.nGrid, nUserExtra: (P.extraNodes || []).length, gsE, extraInfo: GS.extraInfo,
+      cases: R.BC.cases.map(c => c.name), members: R.S.members.map(e => ({ a: e.a, b: e.b, A: e.A, q: e.q, L: e.L, stab: !!e.stab, rod: !!e.rod, deck: !!e.deck, enlarged: !!e.enlarged, buckleOver: !!e.buckleOver, segs: e.gs ? e.gs.length : 1 })),
+      buck: R.buck ? { over: R.buck.over, split: R.buck.split, braceNodes: R.buck.braceNodes, enlarged: R.buck.enlarged } : null, fsd: R.fsd,
+      fold0: R.fold0 && R.fold0.tris ? { tris: R.fold0.tris, triBody: R.fold0.triBody, hinges: R.fold0.hinges, bodies: R.fold0.bodyCount } : (R.fold0 ? { tris: [], triBody: [], hinges: [], bodies: R.fold0.bodyCount } : null),
+      fold: R.fold ? { tris: R.fold.tris || [], triBody: R.fold.triBody || [], hinges: R.fold.hinges, triangles: R.fold.triangles } : null,
+      volume: R.S.volume, merged: R.S.merged, added: R.added, crossLeft: R.crossLeft, obj: R.opt.obj, lpObj: R.opt.lpObj, method: R.opt.method, gap: R.opt.gap ?? null, timeLimited: !!R.opt.timeLimited,
+      stab: { nf: R.stab.nf, r: R.stab.r, m: R.stab.m, s: R.stab.s, skipped: R.stab.skipped, mech: (R.stab.mechNodes||[]).map(o => o.node), local: R.stab.localDeficient.length },
+      fem: R.fem ? { regularized: R.fem.regularized, cases: R.fem.results.map(r => ({ name: r.name, umax: r.umax, util: r.utilMax, buck: r.buckUtil, conv: r.converged, U: r.U })) } : null,
+      inp: GSTO.toInp(P, GS, R.BC, R.S), cap: R.cap, symPlanes: R.symPlanes, grow: R.grow, geom: R.geom, nCrossSplit: R.nCrossSplit, timing: R.timing, time: R.time });
+  } catch (err) { self.postMessage({ type: 'done', ok: false, msg: String(err && err.message || err) }); }
+};`;
+  worker = new Worker(URL.createObjectURL(new Blob([body], { type: 'text/javascript' })));
+  worker.onerror = e => { log('워커 오류: ' + (e.message || e), true); finish(); };
+}
+
+// ---------- problem <-> form ----------
+const fields = { ox: ['grid','origin',0], oy: ['grid','origin',1], oz: ['grid','origin',2], h: ['grid','h'], nx: ['grid','nx'], ny: ['grid','ny'], nz: ['grid','nz'],
+  E: ['material','E'], nu: ['material','nu'], sT: ['material','sigmaT'], sC: ['material','sigmaC'], DoverT: ['options','DoverT'], gammaB: ['options','gammaB'],
+  timeLimit: ['options','timeLimit'], maxLen: ['options','maxLen'], geomRange: ['options','geomRange'], geomMerge: ['options','geomMerge'], jointCost: ['options','jointCost'], perturb: ['options','perturb'], areaCut: ['options','areaCut'], stabArea: ['options','stabArea'] };
+const checks = ['noCrossing','mergeCollinear','stabilize','buckling','fsd','geomOpt','allowRods'];
+const pctFields = { ratioC: 'ratioC', ratioT: 'ratioT', braceRatio: 'braceRatio', simplifyTol: 'simplifyTol' };   // shown in %, stored as ratio
+const getPath = p => p.length === 3 ? S[p[0]][p[1]][p[2]] : S[p[0]][p[1]];
+const setPath = (p, v) => { if (p.length === 3) S[p[0]][p[1]][p[2]] = v; else S[p[0]][p[1]] = v; };
+function fillForm() {
+  for (const id in fields) $(id).value = getPath(fields[id]);
+  checks.forEach(id => $(id).checked = !!S.options[id]);
+  [0,1,2].forEach(t => $('k'+t).checked = !!S.options.kinds[t]);
+  $('crossMethod').value = S.options.crossMethod; $('connect').value = S.options.connect || 'full'; $('geomOpts').hidden = !S.options.geomOpt; $('objective').value = S.options.objective === 'uniform' ? 'roundup' : S.options.objective; $('catalog').value = (S.options.catalog || []).join(', ');
+  $('supportShare').value = fmt(100*(S.options.supportShare || 0)); $('symAuto').checked = !!S.options.symAuto;
+  for (const id in pctFields) $(id).value = fmt(100*(S.options[pctFields[id]] ?? 0));
+  $('minA').value = S.options.minA > 0 ? S.options.minA : ''; $('section').value = S.options.section || 'tube';
+  $('braceMin').value = S.options.braceMin > 0 ? fmt(100*S.options.braceMin) : '';
+  syncObjectiveUI(); renderRegions(); renderExtras(); gridInfo(); syncLevel(); syncSym();
+}
+function detectSym() {                            // mirror symmetry of the problem definition about each mid-plane
+  const g = S.grid, N = [g.nx, g.ny, g.nz], tol = 1e-6*g.h + 1e-9;
+  const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) <= tol);
+  return [0, 1, 2].map(t => {
+    const c2 = 2*g.origin[t] + N[t]*g.h, mp = p => p.map((v, i) => i === t ? c2 - v : v);
+    const regOk = S.regions.every(r => {
+      const mn = r.min.slice(), mx = r.max.slice(); mn[t] = c2 - r.max[t]; mx[t] = c2 - r.min[t];
+      return S.regions.some(o => o.type === r.type && near(o.min, mn) && near(o.max, mx) && !!o.faceNodes === !!r.faceNodes &&
+        (r.type !== 'support' || o.fix.every((f, i) => !!f === !!r.fix[i])) &&
+        (r.type !== 'load' || ((o.case || 1) === (r.case || 1) && near(o.F, r.F.map((v, i) => i === t ? -v : v)))));
+    });
+    return regOk && S.extraNodes.every(p => S.extraNodes.some(q => near(q, mp(p)))) ? 1 : 0;
+  });
+}
+function symNow() { return S.options.symAuto ? detectSym() : S.options.symmetry; }
+function syncSym() {
+  const sy = symNow();
+  [0, 1, 2].forEach(t => { $('sym'+t).checked = !!sy[t]; $('sym'+t).disabled = !!S.options.symAuto; });
+  $('symInfo').textContent = S.options.symAuto ? '실행 시 모델(노드·부재·구속·하중) 기준으로 감지' : '';
+}
+$('symAuto').addEventListener('change', () => { S.options.symAuto = $('symAuto').checked; if (!S.options.symAuto) S.options.symmetry = detectSym(); changed(); });
+[0, 1, 2].forEach(t => $('sym'+t).addEventListener('change', () => { S.options.symmetry[t] = $('sym'+t).checked ? 1 : 0; changed(); }));
+$('supportShare').addEventListener('input', () => { const v = parseFloat($('supportShare').value); if (Number.isFinite(v)) { S.options.supportShare = Math.max(0, Math.min(100, v))/100; changed(); } });
+function syncObjectiveUI() {
+  const ru = S.options.objective === 'roundup', mA = S.options.objective === 'minA' || ru;
+  $('roundBox').hidden = !ru;
+  $('fMinA').hidden = !mA; $('minAHint').hidden = ru || !mA; $('ratioBox').hidden = !mA; $('fAllowRods').hidden = ru || !mA; $('fRatioT').hidden = ru || !S.options.allowRods;
+  $('fDt').hidden = S.options.section === 'solid';
+}
+for (const id in fields) $(id).addEventListener('input', () => {
+  const v = parseFloat($(id).value); if (!Number.isFinite(v)) return;
+  if (['nx','ny','nz'].includes(id)) {             // one axis may be 0 cells → 2D plane truss
+    const n = Math.max(0, Math.round(v)), others = ['nx','ny','nz'].filter(k => k !== id).map(k => S.grid[k]);
+    if (n === 0 && others.includes(0)) { log('셀 수 0은 한 축에만 둘 수 있습니다 (2D 평면)', true); $(id).value = S.grid[id]; return; }
+    setPath(fields[id], n);
+  } else setPath(fields[id], v);
+  changed();
+});
+checks.forEach(id => $(id).addEventListener('change', () => { S.options[id] = $(id).checked; changed(); }));
+[0,1,2].forEach(t => $('k'+t).addEventListener('change', () => { S.options.kinds[t] = $('k'+t).checked ? 1 : 0; changed(); }));
+$('crossMethod').addEventListener('change', () => { S.options.crossMethod = $('crossMethod').value; changed(); });
+$('connect').addEventListener('change', () => { S.options.connect = $('connect').value; changed(); });
+$('geomOpt').addEventListener('change', () => { $('geomOpts').hidden = !$('geomOpt').checked; });
+$('allowRods').addEventListener('change', () => syncObjectiveUI());
+$('objective').addEventListener('change', () => { S.options.objective = $('objective').value; syncObjectiveUI(); changed(); });
+for (const id in pctFields) $(id).addEventListener('input', () => { const v = parseFloat($(id).value); if (Number.isFinite(v)) { S.options[pctFields[id]] = Math.max(0, v)/100; changed(); } });
+$('braceMin').addEventListener('input', () => { const v = parseFloat($('braceMin').value); S.options.braceMin = Number.isFinite(v) && v > 0 ? v/100 : 0; changed(); });
+$('minA').addEventListener('input', () => { const v = parseFloat($('minA').value); S.options.minA = Number.isFinite(v) && v > 0 ? v : 0; changed(); });
+$('section').addEventListener('change', () => { S.options.section = $('section').value; syncObjectiveUI(); changed(); });
+$('catalog').addEventListener('input', () => { S.options.catalog = $('catalog').value.split(/[,\s]+/).map(Number).filter(v => v > 0).sort((a, b) => a - b); changed(); });
+
+function gridInfo() {
+  const g = S.grid, n = (g.nx+1)*(g.ny+1)*(g.nz+1), [a, b, c] = [g.nx, g.ny, g.nz], k = S.options.kinds;
+  const cand = k[0]*(a*(b+1)*(c+1) + (a+1)*b*(c+1) + (a+1)*(b+1)*c) + k[1]*2*(a*b*(c+1) + a*(b+1)*c + (a+1)*b*c) + k[2]*4*a*b*c;
+  const flat = [g.nx, g.ny, g.nz].indexOf(0);
+  $('gridInfo').textContent = (flat >= 0 ? `2D 모드 (${['YZ', 'XZ', 'XY'][flat]} 평면, ${'xyz'[flat]} 방향 횡지지 가정) · ` : '') + `범위 x ${fmt(g.origin[0])}–${fmt(g.origin[0]+g.nx*g.h)}, y ${fmt(g.origin[1])}–${fmt(g.origin[1]+g.ny*g.h)}, z ${fmt(g.origin[2])}–${fmt(g.origin[2]+g.nz*g.h)} · 격자 노드 ${n} · 후보 부재 ${cand.toLocaleString()} (장애물 제외 전)`;
+}
+const fmt = v => (Math.round(v*1000)/1000).toString();
+const TYPE = { support: ['지지', 'var(--support)'], load: ['하중', 'var(--load)'], obstacle: ['장애물', 'var(--obstacle)'] };
+function renderRegions() {
+  const counts = {};
+  $('regions').innerHTML = S.regions.map((r, i) => {
+    counts[r.type] = (counts[r.type] || 0) + 1;
+    const xyz = (k, lab) => ['x','y','z'].map((a, t) => `<label class="f">${lab} ${a}<input type="number" step="any" id="r${i}${k}${t}" data-r="${i}" data-k="${k}" data-t="${t}" value="${fmt(r[k][t])}"></label>`).join('');
+    let extra = '';
+    if (r.type === 'support') extra = `<div style="display:flex;gap:12px;flex-wrap:wrap">${['x','y','z'].map((a, t) => `<label class="chk"><input type="checkbox" id="r${i}fix${t}" data-r="${i}" data-k="fix" data-t="${t}" ${r.fix[t] ? 'checked' : ''}> 구속 ${a}</label>`).join('')}</div>`;
+    if (r.type === 'load') extra = `<div class="row r4">${['x','y','z'].map((a, t) => `<label class="f">F${a} [N]<input type="number" step="any" id="r${i}F${t}" data-r="${i}" data-k="F" data-t="${t}" value="${r.F[t]}"></label>`).join('')}<label class="f">케이스<input type="number" min="1" step="1" id="r${i}case" data-r="${i}" data-k="case" value="${r.case || 1}"></label></div>`;
+    return `<div class="reg${i === sel ? ' sel' : ''}${i === hotRegion ? ' hot' : ''}" data-i="${i}"><div class="hd"><span class="tag"><i style="background:${TYPE[r.type][1]}"></i>${TYPE[r.type][0]} ${counts[r.type]}</span><span class="sp"></span><button class="x" data-del="${i}" aria-label="삭제">×</button></div>
+      <div class="row">${xyz('min','min')}</div><div class="row">${xyz('max','max')}</div>${extra}
+      <label class="chk"><input type="checkbox" id="r${i}face" data-r="${i}" data-k="faceNodes" ${r.faceNodes ? 'checked' : ''}> 면 보간 노드 (박스 면을 지나는 격자선 위치에 노드 추가)</label></div>`;
+  }).join('') || '<p class="hint">영역이 없습니다. 위 버튼이나 뷰포트 그리기 도구로 추가하세요.</p>';
+}
+$('regions').addEventListener('input', e => {
+  const el = e.target, i = +el.dataset.r, k = el.dataset.k; if (!k) return;
+  const r = S.regions[i];
+  if (k === 'fix') r.fix[+el.dataset.t] = el.checked ? 1 : 0;
+  else if (k === 'faceNodes') r.faceNodes = el.checked;
+  else { const v = parseFloat(el.value); if (!Number.isFinite(v)) return; if (k === 'case') r.case = Math.max(1, Math.round(v)); else r[k][+el.dataset.t] = v; }
+  changed();
+});
+$('regions').addEventListener('click', e => {
+  const d = e.target.dataset.del;
+  if (d !== undefined) { deleteRegion(+d); return; }
+  const el = e.target.closest('.reg'); if (el && +el.dataset.i !== sel) selectRegion(+el.dataset.i, false);
+});
+$('regions').addEventListener('pointerover', e => { const el = e.target.closest('.reg'); const i = el ? +el.dataset.i : -1; if (i !== hotRegion) { hotRegion = i; markRegions(); drawRegions(); render(); } });
+$('regions').addEventListener('pointerleave', () => { hotRegion = -1; markRegions(); drawRegions(); render(); });
+function markRegions() { document.querySelectorAll('.reg').forEach(n => { const i = +n.dataset.i; n.classList.toggle('hot', i === hotRegion); n.classList.toggle('sel', i === sel); }); }
+function deleteRegion(i) { S.regions.splice(i, 1); if (sel === i) sel = -1; else if (sel > i) sel--; hotRegion = -1; renderRegions(); changed(); }
+function selectRegion(i, scroll) {
+  sel = i; markRegions(); drawRegions(); render();
+  if (scroll && i >= 0) { const el = document.querySelector(`.reg[data-i="${i}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+}
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  const g = S.grid, c = g.origin.map((o, t) => o + [g.nx, g.ny, g.nz][t]*g.h/2), hh = g.h/2;
+  addRegion(b.dataset.add, c.map(v => v - hh), c.map(v => v + hh));
+}));
+function addRegion(type, min, max) {
+  const r = { type, min, max, faceNodes: false };
+  if (type === 'support') r.fix = [1,1,1];
+  if (type === 'load') { r.F = [0,0,-1000]; r.case = 1; }
+  S.regions.push(r); sel = S.regions.length - 1; renderRegions(); changed(); selectRegion(sel, true);
+}
+function renderExtras() {
+  $('extras').innerHTML = S.extraNodes.map((p, i) => `<div class="row r4">${['x','y','z'].map((a, t) => `<label class="f">${a}<input type="number" step="any" id="x${i}${t}" data-n="${i}" data-t="${t}" value="${p[t]}"></label>`).join('')}<div style="display:flex;align-items:end"><button class="x" data-deln="${i}" aria-label="삭제">×</button></div></div>`).join('') || '<p class="hint">추가 노드가 없습니다.</p>';
+}
+$('extras').addEventListener('input', e => { const el = e.target, v = parseFloat(el.value); if (el.dataset.n === undefined || !Number.isFinite(v)) return; S.extraNodes[+el.dataset.n][+el.dataset.t] = v; changed(); });
+$('extras').addEventListener('click', e => { const d = e.target.dataset.deln; if (d !== undefined) { S.extraNodes.splice(+d, 1); renderExtras(); changed(); } });
+$('addNode').addEventListener('click', () => { const g = S.grid; S.extraNodes.push(g.origin.map((o, t) => o + ([g.nx, g.ny, g.nz][t]*g.h)/2 + g.h/2)); renderExtras(); changed(); });
+
+let drawTimer = 0;
+function changed() { gridInfo(); syncSym(); if (result) $('stale').hidden = false; clearTimeout(drawTimer); drawTimer = setTimeout(() => { drawDomain(); drawRegions(); render(); }, 40); }
+
+function toP() {
+  const o = S.options;
+  const reg = t => S.regions.filter(r => r.type === t);
+  return { grid: S.grid, material: S.material,
+    supports: reg('support').map(r => ({ min: r.min, max: r.max, fix: r.fix, faceNodes: !!r.faceNodes })),
+    loads: reg('load').map(r => ({ min: r.min, max: r.max, F: r.F, case: r.case || 1, faceNodes: !!r.faceNodes })),
+    obstacles: reg('obstacle').map(r => ({ min: r.min, max: r.max, faceNodes: !!r.faceNodes })),
+    extraNodes: S.extraNodes, options: { ...o, symmetry: S.options.symAuto ? [0, 0, 0] : S.options.symmetry, symAuto: !!S.options.symAuto } };
+}
+
+// ---------- run ----------
+function log(s, err) { const L = $('log'), d = document.createElement('div'); d.textContent = s; if (err) d.className = 'e'; L.appendChild(d); L.scrollTop = L.scrollHeight; }
+function finish() { running = false; $('btnRun').textContent = '최적화 실행'; }
+function run() {
+  if (running) { worker.terminate(); worker = null; log('사용자가 중지했습니다', true); finish(); return; }
+  if (!S.regions.some(r => r.type === 'support') || !S.regions.some(r => r.type === 'load')) { log('지지 영역과 하중 영역이 각각 하나 이상 필요합니다', true); return; }
+  if (S.options.objective === 'minA' && !(S.options.minA > 0) && !(S.options.ratioC > 0)) { log('A_min 또는 압축 하한 비율 r_c를 입력하세요', true); return; }
+  const nSup = S.regions.filter(r => r.type === 'support').length;
+  if (S.options.supportShare*nSup > 1) { log(`반력 분담률 ${fmt(100*S.options.supportShare)}% × 지지 영역 ${nSup}곳이 100%를 넘습니다. 분담률을 ${fmt(100/nSup)}% 이하로 낮춰 주세요`, true); return; }
+  if (!worker) makeWorker();
+  running = true; $('btnRun').textContent = '중지'; $('log').textContent = '';
+  const snapshot = JSON.stringify(S);
+  worker.onmessage = ev => {
+    const m = ev.data;
+    if (m.type === 'log') { log(m.s, m.s.startsWith('경고')); return; }
+    finish();
+    if (!m.ok) { log('실패: ' + m.msg, true); return; }
+    result = m; result.snapshot = snapshot; $('stale').hidden = true;
+    if (S.options.symAuto && m.symPlanes) { const sp = m.symPlanes; $('symInfo').textContent = sp.some(Boolean) ? `감지됨 (모델 기준): ${sp.map((v, t) => v ? 'xyz'[t] : '').join('')}` : '감지된 대칭 없음 (모델 기준)'; [0, 1, 2].forEach(t => $('sym'+t).checked = !!sp[t]); }
+    $('defCase').innerHTML = (m.fem ? m.fem.cases : []).map((c, i) => `<option value="${i}">${c.name}</option>`).join('');
+    drawResult(); renderStats(); render();
+  };
+  const P = toP();
+  wasmBytes().then(w => worker.postMessage({ P, wasm: w })).catch(err => { log(String(err.message || err), true); finish(); });
+}
+$('btnRun').addEventListener('click', run);
+
+function renderStats() {
+  const r = result, st = r.stab, fem = r.fem;
+  const nStab = r.members.filter(e => e.stab).length, Amax = Math.max(...r.members.map(e => e.A));
+  const c0 = r.cap && r.cap[0], lamTxt = v => v === null || v === undefined ? '–' : Number.isFinite(v) ? v.toFixed(2) : '∞';
+  const Fmag = c0 ? Math.hypot(...[0, 1, 2].map(t => S.regions.filter(g => g.type === 'load' && (g.case || 1) === 1).reduce((a, g) => a + g.F[t], 0))) : 0;
+  const stabPill = st.skipped ? '<span class="pill warn">판정 생략</span>' : st.m === 0 ? '<span class="pill ok">안정 m=0</span>' : `<span class="pill warn">메커니즘 m=${st.m}</span>`;
+  const um = fem ? Math.max(...fem.cases.map(f => f.umax)) : null, ut = fem ? Math.max(...fem.cases.map(f => f.util)) : null, ub = fem ? Math.max(...fem.cases.map(f => f.buck)) : null;
+  const nRod = r.members.filter(e => e.rod).length; $('legRod').hidden = !nRod; const h0 = r.fold0 ? r.fold0.hinges.length : 0, h1 = r.fold ? r.fold.hinges.length : 0, bk = r.buck;
+  const warnIf = (v, bad) => bad ? `<span style="color:var(--warn)">${v}</span>` : v;
+  const item = (v, l) => `<div class="st"><b>${v}</b><span>${l}</span></div>`;
+  const ref = fem && fem.regularized ? ' · 참고용' : '';
+  $('stats').innerHTML =
+    (item(r.volume.toExponential(3), '체적 [mm³]') + item(`${r.members.length - nStab}<span style="color:var(--muted);font-size:12px"> + ${nStab}${r.members.some(e => e.deck) ? ` · 하중면 ${r.members.filter(e => e.deck).length}` : ''}</span>`, '부재 수 (주 부재 + 잠금·보강)') + item(`${fmt(Math.min(...r.members.filter(e => !e.rod).map(e => e.A)))}–${Amax.toFixed(1)}`, `단면 범위 [mm²]${nRod ? ` · 텐션 로드 ${nRod}` : ''}`) + item(r.cases.join(' · '), '하중 케이스')) +
+    `<div class="st"><b style="font-size:13px">${stabPill}</b><span>자유도 n<sub>f</sub>=${st.nf}, r=${st.r ?? '–'}, s=${st.s ?? '–'}</span></div>` +
+    item(`${h0} → ${warnIf(h1, h1 > 0)}`, '접힘 힌지 (잠금 전 → 후)') +
+    item(bk ? (bk.over ? `${bk.over}<span style="color:var(--muted);font-size:12px"> · 보강 ${bk.braceNodes.length} · 증대 ${bk.enlarged}</span>` : '0') : '–', '좌굴 초과 (횡보강 절점 · 단면 증대)') +
+    item(r.crossLeft === 0 ? '0' : warnIf(r.crossLeft, true), 'X 교차 잔여') +
+    item(r.grow ? `${r.grow.added}<span style="color:var(--muted);font-size:12px"> / ${r.grow.pool} · ${r.grow.iters}회</span>` : '1셀', '장거리 부재 추가 / 후보 · 반복') +
+    item(r.geom ? `${(100*(r.geom.V - r.geom.V0)/r.geom.V0).toFixed(2)}%<span style="color:var(--muted);font-size:12px"> · 교차 절점 ${r.nCrossSplit || 0}</span>` : `–<span style="color:var(--muted);font-size:12px"> · 교차 절점 ${r.nCrossSplit || 0}</span>`, '기하 최적화 체적 변화') +
+    item(um === null ? '–' : um.toFixed(3), `최대 변위 [mm] (선형${ref})`) +
+    item(ut === null ? '–' : warnIf(ut.toFixed(3), ut > 1.0001), `응력 이용률 (선형${ref})`) +
+    item(ub === null ? '–' : warnIf(ub.toFixed(3), ub > 1.0001), `좌굴 이용률 (선형, γ 포함)`) +
+    (c0 ? item(`${lamTxt(c0.elastic)} · ${lamTxt(c0.plastic)}<span style="color:var(--muted);font-size:12px"> ${c0.elasticMode ? `(${c0.elasticMode} #${c0.elasticMember + 1})` : ''}</span>`, `최대 하중 배수 λ ${r.cases[0]} (첫 부재 · 붕괴)${Fmag && c0.elastic ? ` ≈ ${Math.round(c0.elastic*Fmag).toLocaleString()} N` : ''}`) : '') +
+    `<div class="exp"><span class="lbl">내보내기</span><button id="eInp">Abaqus .inp</button><button id="eCsv">부재 CSV</button><button id="eJson">결과 JSON</button>
+     <span class="lbl" style="margin-left:auto">${methodText(r)} · ${(r.time/1000).toFixed(1)} s${r.timing ? ` (추가 ${((r.timing.grow||0)/1000).toFixed(1)} · 최적화 ${((r.timing.opt||0)/1000).toFixed(1)}${r.timing.geom > 50 ? ` · 기하 ${(r.timing.geom/1000).toFixed(1)}` : ''} · 좌굴·잠금 ${((r.timing.stab||0)/1000).toFixed(1)} · 검증 ${((r.timing.fem||0)/1000).toFixed(1)})` : ''}</span></div>`;
+  $('eInp').onclick = () => openDlg('Abaqus 입력 파일 (T3D2)', r.inp, 'gsto_result.inp');
+  $('eCsv').onclick = () => openDlg('부재 목록 CSV', csv(), 'gsto_members.csv');
+  $('eJson').onclick = () => openDlg('결과 JSON', JSON.stringify({ problem: JSON.parse(r.snapshot), result: resultJson() }, null, 1), 'gsto_result.json');
+}
+function methodText(r) {
+  if (r.method === 'minA') return `단면 비율 제한 · LP 하한 대비 +${(100*r.gap).toFixed(1)}%${r.fsd ? ` · FSD ${r.fsd}회` : ''}`;
+  if (r.method === 'roundup') return `최소 단면 올림·재최적화 · LP 하한 대비 +${(100*r.gap).toFixed(1)}%${r.fsd ? ` · FSD ${r.fsd}회` : ''}`;
+  const m = r.method === 'milp' ? 'MILP' : r.method === 'fix' ? '고정 휴리스틱' : 'LP';
+  return `${m} · LP 하한 대비 +${((r.obj/r.lpObj - 1)*100).toFixed(2)}%`;
+}
+function statsEmpty() { $('stats').innerHTML = '<div class="st" style="grid-column:1/-1"><span>실행하면 체적, 자유도 판정, 선형 해석 결과가 여기에 표시됩니다.</span></div>'; }
+function csv() {
+  const r = result, X = r.X, L = ['id,node_a,node_b,xa,ya,za,xb,yb,zb,L,A,segments,' + r.cases.map(c => 'q_' + c).join(',') + ',type'];
+  r.members.forEach((e, i) => L.push([i+1, e.a, e.b, ...X[e.a], ...X[e.b], e.L.toFixed(4), e.A.toExponential(5), e.segs, ...e.q.map(q => q.toExponential(5)), e.stab ? 'bracing' : e.deck ? 'deck' : e.rod ? 'rod' : 'main'].join(',')));
+  return L.join('\n');
+}
+function resultJson() { const r = result, used = [...new Set(r.members.flatMap(e => [e.a, e.b]))].sort((a,b) => a-b);
+  return { method: r.method, volume: r.volume, cases: r.cases, nodes: used.map(j => ({ id: j, x: r.X[j] })), members: r.members, stability: r.stab,
+    linear: r.fem ? { regularized: r.fem.regularized, cases: r.fem.cases.map(c => ({ name: c.name, umax: c.umax, util: c.util })) } : null }; }
+
+// ---------- dialog / files ----------
+let dlgFile = '', dl = null;
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { dl = d; }).catch(() => {}); } catch {}
+function openDlg(title, text, file, loadable) {
+  $('dlgTitle').textContent = title; $('dlgText').value = text; $('dlgText').readOnly = !loadable; dlgFile = file;
+  $('dlgSave').hidden = !file || (inIframe && !dl);
+  $('dlgSave').textContent = inIframe && file && file.endsWith('.inp') ? '파일로 저장 (.inp.txt)' : '파일로 저장';
+  $('dlgLoad').hidden = !loadable; $('dlgCopy').hidden = !!loadable; $('dlgCopy').textContent = '복사';
+  $('dlg').showModal();
+}
+$('dlgClose').onclick = () => $('dlg').close();
+$('dlgCopy').onclick = async () => { try { await navigator.clipboard.writeText($('dlgText').value); $('dlgCopy').textContent = '복사됨'; } catch { $('dlgText').select(); $('dlgCopy').textContent = 'Ctrl/⌘+C로 복사'; } };
+$('dlgSave').onclick = async () => {
+  const btn = $('dlgSave'), data = $('dlgText').value;
+  if (inIframe) {
+    if (!dl) return;
+    const name = dlgFile.endsWith('.inp') ? dlgFile + '.txt' : dlgFile;   // .inp is not an allowed extension in the viewer
+    try { await dl.save({ filename: name, data }); btn.textContent = '저장됨'; }
+    catch (e) { btn.textContent = e && e.code === 'declined' ? '저장 취소됨' : '저장할 수 없음'; }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'text/plain' })); a.download = dlgFile; a.click();
+};
+$('dlgLoad').onclick = () => { if (loadProblem($('dlgText').value)) $('dlg').close(); };
+$('btnExportProblem').onclick = () => openDlg('문제 정의 JSON', JSON.stringify(S, null, 1), 'gsto_problem.json');
+$('btnImport').onclick = () => openDlg('문제 JSON 붙여넣기', '', '', true);
+const readFile = f => { const rd = new FileReader(); rd.onload = () => loadProblem(rd.result); rd.readAsText(f); };
+$('fileIn').addEventListener('change', e => { const f = e.target.files[0]; if (f) readFile(f); });
+$('view').addEventListener('dragover', e => { e.preventDefault(); });
+$('view').addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+function loadProblem(txt) {
+  try { let o = JSON.parse(txt); if (o.problem) o = o.problem; if (!o.grid || !o.regions) throw new Error('grid/regions 항목이 없습니다');
+    const d = clone(DEFAULT);
+    S = { ...d, ...o, options: { ...d.options, ...(o.options || {}) } };
+    S.extraNodes = S.extraNodes || []; S.regions.forEach(r => { r.faceNodes = !!r.faceNodes; });
+    if (!Array.isArray(S.options.symmetry)) S.options.symmetry = [0,0,0];
+    sel = -1; fillForm(); changed(); fitView(); log('문제를 불러왔습니다'); return true;
+  } catch (err) { log('불러오기 실패: ' + err.message, true); return false; }
+}
+
+// ---------- 3D view (Z-up, like Rhino) ----------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const col = n => new THREE.Color(css(n) || '#888');
+const view = $('view'), canvas = $('cv');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+const scene = new THREE.Scene();
+const persp = new THREE.PerspectiveCamera(35, 1, 1, 1e6); persp.up.set(0, 0, 1);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -1e6, 1e6);
+let camera = persp, viewMode = '3d', orthoHalf = 500;
+let controls = new THREE.OrbitControls(camera, canvas); controls.addEventListener('change', render);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445048, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(1, -2, 3); scene.add(sun);
+const G = { domain: new THREE.Group(), regions: new THREE.Group(), gs: new THREE.Group(), res: new THREE.Group(), mech: new THREE.Group(), fold: new THREE.Group(), gizmo: new THREE.Group(), preview: new THREE.Group() };
+Object.values(G).forEach(g => scene.add(g));
+const clear = g => { while (g.children.length) { const c = g.children.pop(); c.geometry && c.geometry.dispose(); c.material && c.material.dispose(); } };
+function render() { renderer.render(scene, camera); }
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h, false); persp.aspect = w/h; persp.updateProjectionMatrix();
+  const a = w/h; ortho.left = -orthoHalf*a; ortho.right = orthoHalf*a; ortho.top = orthoHalf; ortho.bottom = -orthoHalf; ortho.updateProjectionMatrix(); render();
+}
+new ResizeObserver(resize).observe(view);
+
+function bounds() { const g = S.grid; return { min: g.origin.slice(), max: g.origin.map((o, t) => o + [g.nx, g.ny, g.nz][t]*g.h) }; }
+const VIEW = { xy: { n: 2, dir: [0,0,1], up: [0,1,0] }, xz: { n: 1, dir: [0,-1,0], up: [0,0,1] }, yz: { n: 0, dir: [1,0,0], up: [0,0,1] } };
+const normalAxis = () => viewMode === '3d' ? 2 : VIEW[viewMode].n;
+function fitView() {
+  const b = bounds(), c = b.min.map((v, t) => (v + b.max[t])/2), d = Math.hypot(...b.max.map((v, t) => v - b.min[t])) || 1;
+  if (viewMode === '3d') {
+    camera.position.set(c[0] + 0.9*d, c[1] - 1.5*d, c[2] + 0.8*d); persp.near = d/200; persp.far = d*50; persp.updateProjectionMatrix();
+  } else {
+    const V = VIEW[viewMode], ext = [0,1,2].filter(t => t !== V.n).map(t => b.max[t] - b.min[t]);
+    const a = view.clientWidth / Math.max(1, view.clientHeight);
+    orthoHalf = 0.62*Math.max(ext[viewMode === 'xy' ? 1 : 1], ext[0]/a, S.grid.h);
+    ortho.position.set(c[0] + V.dir[0]*2*d, c[1] + V.dir[1]*2*d, c[2] + V.dir[2]*2*d); ortho.up.set(...V.up); ortho.zoom = 1; resize();
+  }
+  controls.target.set(...c); controls.update(); render();
+}
+function setView(v) {
+  viewMode = v; document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  camera = v === '3d' ? persp : ortho;
+  controls.dispose(); controls = new THREE.OrbitControls(camera, canvas); controls.addEventListener('change', render);
+  controls.enableRotate = v === '3d'; controls.screenSpacePanning = true;
+  syncLevel(); fitView(); drawRegions(); render(); updateHint();
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+$('vFit').onclick = fitView;
+
+// work plane (for drawing) and snapping
+const level = [0, 0, 0];
+function syncLevel() {
+  const a = normalAxis(); if (!syncLevel.init) { const b = bounds(); level[0] = b.min[0]; level[1] = b.min[1]; level[2] = b.min[2]; syncLevel.init = true; }
+  $('lvlLab').textContent = 'xyz'[a] + ' 평면'; $('lvl').value = fmt(level[a]);
+}
+const snapStep = () => { const f = parseFloat($('snap').value); return f > 0 ? f*S.grid.h : 0; };
+const snapV = (v, t) => { const s = snapStep(); return s ? S.grid.origin[t] + Math.round((v - S.grid.origin[t])/s)*s : Math.round(v*1000)/1000; };
+$('lvl').addEventListener('input', () => { const v = parseFloat($('lvl').value); if (Number.isFinite(v)) { level[normalAxis()] = v; drawPreview(); render(); } });
+const stepLevel = d => { const a = normalAxis(), s = snapStep() || S.grid.h; level[a] = snapV(level[a] + d*s, a); $('lvl').value = fmt(level[a]); drawPreview(); render(); };
+$('lvlUp').onclick = () => stepLevel(1); $('lvlDn').onclick = () => stepLevel(-1);
+
+// draw mode
+let drawType = null;
+document.querySelectorAll('[data-draw]').forEach(b => b.addEventListener('click', () => {
+  drawType = drawType === b.dataset.draw ? null : b.dataset.draw;
+  document.querySelectorAll('[data-draw]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.draw === drawType)));
+  view.classList.toggle('drawing', !!drawType); drawPreview(); render(); updateHint();
+}));
+function updateHint() {
+  const h = $('drawHint');
+  if (drawType) { h.hidden = false; h.textContent = `${TYPE[drawType][0]} 영역 그리기: ${'xyz'[normalAxis()]} = ${fmt(level[normalAxis()])} 평면 위에서 드래그하세요. 클릭만 하면 한 점 영역이 생깁니다. 그린 뒤 면 핸들을 끌어 두께를 줍니다. 다시 누르면 그리기를 끝냅니다.`; }
+  else h.hidden = true;
+}
+function drawPreview() {                          // faint work-plane outline while drawing
+  clear(G.preview); if (!drawType) return;
+  const a = normalAxis(), b = bounds(), mn = b.min.slice(), mx = b.max.slice(); mn[a] = mx[a] = level[a];
+  const size = mx.map((v, t) => Math.max(v - mn[t], 1e-3)), ctr = mn.map((v, t) => (v + mx[t])/2);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshBasicMaterial({ color: col(TYPE[drawType][1].slice(4, -1)), transparent: true, opacity: .06, depthWrite: false }));
+  m.position.set(...ctr); G.preview.add(m);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineDashedMaterial({ color: col('--accent'), dashSize: S.grid.h*0.2, gapSize: S.grid.h*0.15 }));
+  e.position.copy(m.position); e.computeLineDistances(); G.preview.add(e);
+}
+
+function inOpen(p, b, tol) { for (let t = 0; t < 3; t++) if (!(p[t] > b.min[t]+tol && p[t] < b.max[t]-tol)) return false; return true; }
+function drawDomain() {
+  clear(G.domain);
+  const g = S.grid, obs = S.regions.filter(r => r.type === 'obstacle'), pts = [];
+  const N = (g.nx+1)*(g.ny+1)*(g.nz+1);
+  if (N <= 200000) for (let k = 0; k <= g.nz; k++) for (let j = 0; j <= g.ny; j++) for (let i = 0; i <= g.nx; i++) {
+    const p = [g.origin[0]+i*g.h, g.origin[1]+j*g.h, g.origin[2]+k*g.h]; if (!obs.some(b => inOpen(p, b, 1e-6*g.h))) pts.push(...p);
+  }
+  S.extraNodes.forEach(p => pts.push(...p));
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  const pm = new THREE.Points(geo, new THREE.PointsMaterial({ color: col('--gridpt'), size: 3, sizeAttenuation: false })); pm.visible = $('vGrid').checked; pm.name = 'pts';
+  G.domain.add(pm);
+  const b = bounds(), box = new THREE.Box3(new THREE.Vector3(...b.min), new THREE.Vector3(...b.max));
+  G.domain.add(new THREE.Box3Helper(box, col('--line')));
+  const ax = new THREE.AxesHelper(g.h*1.2); ax.position.set(...g.origin); G.domain.add(ax);
+}
+const regColor = r => col(r.type === 'support' ? '--support' : r.type === 'load' ? '--load' : '--obstacle');
+function drawRegions() {
+  clear(G.regions); clear(G.gizmo);
+  S.regions.forEach((r, i) => {
+    const c = regColor(r), hot = i === hotRegion || i === sel;
+    const size = r.max.map((v, t) => Math.max(Math.abs(v - r.min[t]), S.grid.h*0.06)), ctr = r.min.map((v, t) => (v + r.max[t])/2);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: r.type === 'obstacle' ? (hot ? .35 : .22) : (hot ? .45 : .25), depthWrite: false }));
+    m.position.set(...ctr); m.userData.ri = i; G.regions.add(m);
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: i === sel ? col('--accent') : c, transparent: true, opacity: hot ? 1 : .7 }));
+    e.position.copy(m.position); G.regions.add(e);
+    if (r.type === 'load') {
+      const F = new THREE.Vector3(...r.F); if (F.length() > 0) {
+        const len = S.grid.h*1.4, dir = F.clone().normalize(), from = new THREE.Vector3(...ctr).addScaledVector(dir, -len);
+        G.regions.add(new THREE.ArrowHelper(dir, from, len*0.92, c, len*0.28, len*0.14));
+      }
+    }
+  });
+  G.regions.visible = $('vReg').checked;
+  drawGizmo();
+}
+// face handles of the selected box
+const coneGeo = new THREE.ConeGeometry(1, 2.2, 14);
+function drawGizmo() {
+  clear(G.gizmo); if (sel < 0 || !S.regions[sel] || !G.regions.visible) return;
+  const r = S.regions[sel], h = S.grid.h, ac = col('--accent'), ctr = r.min.map((v, t) => (v + r.max[t])/2);
+  for (let t = 0; t < 3; t++) for (const side of [0, 1]) {
+    if (viewMode !== '3d' && t === VIEW[viewMode].n) continue;
+    const p = ctr.slice(); p[t] = side ? r.max[t] : r.min[t];
+    const dir = new THREE.Vector3(); dir.setComponent(t, side ? 1 : -1);
+    const cone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: ac, depthTest: false, transparent: true, opacity: .95 }));
+    const s = h*0.12; cone.scale.set(s, s, s); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+    cone.position.set(...p).addScaledVector(dir, h*0.3); cone.renderOrder = 10; cone.userData = { t, side };
+    G.gizmo.add(cone);
+  }
+}
+
+// pointer interaction: handle drag > draw rectangle > select
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const setRay = ev => { const rc = canvas.getBoundingClientRect(); ndc.set((ev.clientX - rc.left)/rc.width*2 - 1, -(ev.clientY - rc.top)/rc.height*2 + 1); ray.setFromCamera(ndc, camera); };
+let drag = null;
+canvas.addEventListener('pointerdown', ev => {
+  if (ev.button !== 0) return;
+  setRay(ev);
+  const hh = ray.intersectObjects(G.gizmo.children)[0];
+  if (hh) {
+    const { t, side } = hh.object.userData, r = S.regions[sel], ctr = r.min.map((v, k) => (v + r.max[k])/2);
+    const P0 = new THREE.Vector3(...ctr); P0.setComponent(t, side ? r.max[t] : r.min[t]);
+    drag = { kind: 'handle', t, side, P0, start: side ? r.max[t] : r.min[t] }; controls.enabled = false; canvas.setPointerCapture(ev.pointerId); return;
+  }
+  if (drawType) {
+    const p = planeHit(); if (!p) return;
+    drag = { kind: 'rect', a: snapPt(p), b: snapPt(p) }; controls.enabled = false; canvas.setPointerCapture(ev.pointerId); drawRect(); return;
+  }
+  drag = { kind: 'click', x: ev.clientX, y: ev.clientY };
+});
+canvas.addEventListener('pointermove', ev => {
+  if (!drag) { hover(ev); return; }
+  setRay(ev);
+  if (drag.kind === 'handle') {
+    const d1 = new THREE.Vector3(); d1.setComponent(drag.t, 1);
+    const O = ray.ray.origin, d2 = ray.ray.direction, w0 = drag.P0.clone().sub(O);
+    const a = 1, b = d1.dot(d2), c = d2.dot(d2), d = d1.dot(w0), e = d2.dot(w0), den = a*c - b*b;
+    if (Math.abs(den) < 1e-9) return;
+    const sP = (b*e - c*d)/den, r = S.regions[sel], t = drag.t;
+    let v = snapV(drag.start + sP, t);
+    if (drag.side) r.max[t] = Math.max(v, r.min[t]); else r.min[t] = Math.min(v, r.max[t]);
+    syncRegionInputs(sel); drawRegions(); render();
+  } else if (drag.kind === 'rect') { const p = planeHit(); if (p) { drag.b = snapPt(p); drawRect(); } }
+});
+canvas.addEventListener('pointerup', ev => {
+  if (!drag) return;
+  const d = drag; drag = null; controls.enabled = true;
+  if (d.kind === 'handle') { changed(); return; }
+  if (d.kind === 'rect') {
+    clear(G.preview); drawPreview();
+    const a = normalAxis(), mn = [0,1,2].map(t => Math.min(d.a[t], d.b[t])), mx = [0,1,2].map(t => Math.max(d.a[t], d.b[t]));
+    mn[a] = mx[a] = level[a];
+    addRegion(drawType, mn, mx); return;
+  }
+  if (Math.hypot(ev.clientX - d.x, ev.clientY - d.y) < 4) {
+    setRay(ev); const hit = G.regions.visible ? ray.intersectObjects(G.regions.children.filter(o => o.userData.ri !== undefined))[0] : null;
+    selectRegion(hit ? hit.object.userData.ri : -1, true);
+  }
+});
+function planeHit() {
+  const a = normalAxis(), nrm = new THREE.Vector3(); nrm.setComponent(a, 1);
+  const pl = new THREE.Plane(nrm, -level[a]), out = new THREE.Vector3();
+  return ray.ray.intersectPlane(pl, out) ? [out.x, out.y, out.z] : null;
+}
+const snapPt = p => p.map((v, t) => t === normalAxis() ? level[t] : snapV(v, t));
+function drawRect() {
+  drawPreview();
+  const a = normalAxis(), mn = [0,1,2].map(t => Math.min(drag.a[t], drag.b[t])), mx = [0,1,2].map(t => Math.max(drag.a[t], drag.b[t]));
+  const size = mx.map((v, t) => Math.max(v - mn[t], S.grid.h*0.04)), ctr = mn.map((v, t) => (v + mx[t])/2);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(...size), new THREE.MeshBasicMaterial({ color: col(TYPE[drawType][1].slice(4, -1)), transparent: true, opacity: .4, depthWrite: false }));
+  m.position.set(...ctr); G.preview.add(m); render();
+}
+function syncRegionInputs(i) {
+  const r = S.regions[i]; ['min','max'].forEach(k => [0,1,2].forEach(t => { const el = $(`r${i}${k}${t}`); if (el && document.activeElement !== el) el.value = fmt(r[k][t]); }));
+}
+window.addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && !$('dlg').open) { e.preventDefault(); deleteRegion(sel); }
+  if (e.key === 'Escape' && drawType) document.querySelector(`[data-draw="${drawType}"]`).click();
+});
+
+// result drawing (optionally deformed)
+const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 12, 1), sphGeo = new THREE.SphereGeometry(1, 16, 12);
+let resMesh = null;
+function defState() {
+  const f = result && result.fem; if (!f || !$('vDef').checked) return null;
+  const k = +($('defCase').value || 0), c = f.cases[k]; if (!c || !(c.umax > 0)) return null;
+  const b = bounds(), d = Math.hypot(...b.max.map((v, t) => v - b.min[t]));
+  const s = 0.12*d/c.umax * Math.pow(10, +$('defScale').value - 1);
+  return { U: c.U, s, reg: f.regularized };
+}
+function drawResult() {
+  clear(G.res); clear(G.gs); clear(G.mech); clear(G.fold); resMesh = null;
+  if (!result) return;
+  const r = result, h = S.grid.h, Amax = Math.max(...r.members.map(e => e.A)), gov = r.cap && r.cap[0] ? r.cap[0].elasticMember : -1;
+  const D = defState(), P = j => D ? [0,1,2].map(t => r.X[j][t] + D.s*D.U[3*j+t]) : r.X[j];
+  $('defInfo').textContent = D ? `×${D.s < 10 ? D.s.toFixed(2) : Math.round(D.s).toLocaleString()}${D.reg ? ' · 참고용' : ''}` : (r.fem ? '' : '해석 없음');
+  const ct = col('--tension'), cc = col('--compression'), cs = col('--stab'), cr = col('--rod');
+  const mesh = new THREE.InstancedMesh(cylGeo, new THREE.MeshStandardMaterial({ roughness: .55, metalness: .05 }), r.members.length);
+  const up = new THREE.Vector3(0, 1, 0), M = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  r.members.forEach((e, i) => {
+    const a = new THREE.Vector3(...P(e.a)), b = new THREE.Vector3(...P(e.b)), d = b.clone().sub(a), L = d.length();
+    const rad = e.rod ? h*0.01 : Math.max(h*0.012, h*0.09*Math.sqrt(e.A/Amax));
+    q.setFromUnitVectors(up, d.clone().normalize()); pos.copy(a).add(b).multiplyScalar(.5); sc.set(rad, L, rad);
+    M.compose(pos, q, sc); mesh.setMatrixAt(i, M);
+    let qd = 0; e.q.forEach(v => { const s = v >= 0 ? v/S.material.sigmaT : -v/S.material.sigmaC; if (s > Math.abs(qd)) qd = v >= 0 ? s : -s; });
+    mesh.setColorAt(i, i === gov ? col('--gov') : e.deck ? col('--deck') : e.stab ? cs : e.rod ? cr : qd >= 0 ? ct : cc);   // governing member of the load capacity
+  });
+  mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  G.res.add(mesh); resMesh = mesh;
+  if (D) {                                        // undeformed ghost
+    const gp = []; r.members.forEach(e => gp.push(...r.X[e.a], ...r.X[e.b]));
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3));
+    G.res.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: col('--muted'), transparent: true, opacity: .45 })));
+  }
+  const fx = []; for (let j = r.nGrid + r.nUserExtra; j < r.X.length; j++) fx.push(...r.X[j]);   // face interpolation nodes
+  if (fx.length) { const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(fx, 3)); G.res.add(new THREE.Points(fg, new THREE.PointsMaterial({ color: col('--accent'), size: 5, sizeAttenuation: false }))); }
+  const gp = new Float32Array(r.gsE.length*3);
+  for (let i = 0; i < r.gsE.length; i++) { const p = r.X[r.gsE[i]]; gp[3*i] = p[0]; gp[3*i+1] = p[1]; gp[3*i+2] = p[2]; }
+  const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.BufferAttribute(gp, 3));
+  G.gs.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: col('--muted'), transparent: true, opacity: .18 })));
+  if (r.buck && r.buck.braceNodes.length) {       // lateral bracing points on long compression members
+    const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: col('--accent'), roughness: .4 }), r.buck.braceNodes.length);
+    r.buck.braceNodes.forEach((j, i) => { M.compose(new THREE.Vector3(...P(j)), new THREE.Quaternion(), new THREE.Vector3(h*.12, h*.12, h*.12)); bm.setMatrixAt(i, M); });
+    G.res.add(bm);
+  }
+  const F = r.fold0;                               // folding analysis before locking: triangle faces by rigid body, free hinges
+  if (F && F.tris.length) {
+    const pos3 = [], colr = [], c3 = new THREE.Color();
+    F.tris.forEach((t, i) => { c3.setHSL((F.triBody[i]*0.618034) % 1, 0.55, 0.55); t.forEach(j => { pos3.push(...P(j)); colr.push(c3.r, c3.g, c3.b); }); });
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.Float32BufferAttribute(pos3, 3)); fg.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
+    G.fold.add(new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false })));
+    if (F.hinges.length) {
+      const hm = new THREE.InstancedMesh(cylGeo, new THREE.MeshBasicMaterial({ color: col('--mech') }), F.hinges.length);
+      F.hinges.forEach(([a0, b0], i) => { const a = new THREE.Vector3(...P(a0)), b = new THREE.Vector3(...P(b0)), d = b.clone().sub(a);
+        q.setFromUnitVectors(up, d.clone().normalize()); pos.copy(a).add(b).multiplyScalar(.5); sc.set(h*0.03, d.length(), h*0.03); M.compose(pos, q, sc); hm.setMatrixAt(i, M); });
+      G.fold.add(hm);
+    }
+  }
+  if (r.stab.mech.length) {
+    const mm = new THREE.InstancedMesh(sphGeo, new THREE.MeshStandardMaterial({ color: col('--mech'), roughness: .4 }), r.stab.mech.length);
+    r.stab.mech.forEach((j, i) => { M.compose(new THREE.Vector3(...P(j)), new THREE.Quaternion(), new THREE.Vector3(h*.11, h*.11, h*.11)); mm.setMatrixAt(i, M); });
+    G.mech.add(mm);
+  }
+  G.res.visible = $('vRes').checked; G.gs.visible = $('vGS').checked; G.mech.visible = $('vMech').checked; G.fold.visible = $('vFold').checked;
+}
+[['vGrid', () => { const p = G.domain.getObjectByName('pts'); if (p) p.visible = $('vGrid').checked; }], ['vGS', () => G.gs.visible = $('vGS').checked],
+ ['vReg', () => { G.regions.visible = $('vReg').checked; drawGizmo(); }], ['vRes', () => G.res.visible = $('vRes').checked], ['vMech', () => G.mech.visible = $('vMech').checked], ['vFold', () => G.fold.visible = $('vFold').checked],
+ ['vDef', drawResult], ['defCase', drawResult]]
+  .forEach(([id, f]) => $(id).addEventListener('change', () => { f(); render(); }));
+$('defScale').addEventListener('input', () => { if ($('vDef').checked) { drawResult(); render(); } });
+
+// hover info on members
+let hoverT = 0;
+function hover(ev) {
+  if (hoverT || !resMesh || !G.res.visible) return;
+  hoverT = requestAnimationFrame(() => {
+    hoverT = 0; setRay(ev);
+    const rc = canvas.getBoundingClientRect(), hit = ray.intersectObject(resMesh)[0], tip = $('tip');
+    if (!hit) { tip.hidden = true; return; }
+    const e = result.members[hit.instanceId];
+    tip.textContent = `부재 ${hit.instanceId+1}${e.stab ? ' (안정화)' : e.deck ? ' (하중면)' : ''}\n노드 ${e.a} → ${e.b}\nL = ${e.L.toFixed(1)} mm (${e.segs} 세그먼트)\nA = ${e.A.toFixed(3)} mm²\n` + result.cases.map((c, k) => `q ${c} = ${e.q[k].toFixed(1)} N`).join('\n');
+    tip.hidden = false; tip.style.left = Math.min(ev.clientX - rc.left + 14, rc.width - tip.offsetWidth - 6) + 'px'; tip.style.top = Math.min(ev.clientY - rc.top + 14, rc.height - tip.offsetHeight - 6) + 'px';
+  });
+}
+canvas.addEventListener('pointerleave', () => { $('tip').hidden = true; });
+
+function themeRefresh() { scene.background = col('--view'); drawDomain(); drawRegions(); drawPreview(); drawResult(); render(); }
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeRefresh);
+new MutationObserver(themeRefresh).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- start: example problem, solved on load ----------
+fillForm(); statsEmpty(); scene.background = col('--view'); drawDomain(); drawRegions(); resize(); fitView();
+log('예제: 장애물을 피해 x=0 면에 지지된 캔틸레버, 격자 외 노드(750, 150, 50)에 하중 10 kN');
+run();
+})();
+</script>
